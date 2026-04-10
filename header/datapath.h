@@ -59,7 +59,7 @@ typedef struct MEM_WB_buffer
 // 32 registers each 32 bits wide, initialized to 0
 // Note that register 0 is hardwired to 0 and cannot be modified, so it will always contain the value 0.
 // We use one array so index is the reg name and value is kept as decimal int
-int rf[32] = {0};
+extern int rf[32] = {0};
 /* register guide: 
 x0: zero, 
 x1: ra, 
@@ -85,5 +85,5 @@ bool MemRead = false; // whether to read from memory
 // control signals in order: 0 RegWrite, 1 Branch, 2 ALUSrc, 3 MemWrite, 4 MemtoReg, 5 MemRead 6 ALUOp (2 bits)
 // values are in decimal but represent binary values, so 0 is false and 1 is true for all except ALUOp 
 // which is 0 for R-type, 1 for I-type, and 2 for all other types
-int control_signals[7] = {0};
+extern int control_signals[7] = {0};
 
