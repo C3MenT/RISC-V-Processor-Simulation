@@ -1,8 +1,7 @@
 #include <stdio.h>
 #include "../header/fetch.h"
-#include "../header/datapath.h"
 
-int Fetch(FILE* file, IF_ID_buffer* if_id_buf)
+int Fetch(FILE *file, IF_ID_buffer *if_id_buf)
 {
     /*
         Fetch reads an input file of machine instruction lines.

@@ -1,3 +1,4 @@
+#pragma once
 /*
     This header contains all the shared objects templates and globals that are used
     my multiple different cpp files in the program.
@@ -14,13 +15,15 @@ int extern next_pc = 4;
 typedef struct IF_ID_buffer
 {
     const char* instruction; // 32-bit machine code instruction as a string of 1s and 0s
-    int pc;
+    int pc; // potentially used pc + 4 value
 } IF_ID_buffer;
+
+//IF_ID_buffer if_id_buffer; // input buffer for the decode stage
 
 typedef struct ID_EXE_buffer
 {
     //const char* instruction; // actual name of the instruction as a string (e.g. "add", "lw", etc.)
-    int pc; // pc value
+    int pc; // potentially used pc + 4 value
     // register values and immediate value for use in the execute stage =====================
     int read_data1; // value read from rs1
     int read_data2; // value read from rs2 (for R-type) or the immediate value (for I-type)
@@ -33,26 +36,23 @@ typedef struct ID_EXE_buffer
     int control_signals[7]; // control signals for the instruction, stored as an array of integers representing binary values (0 or 1)
 } ID_EXE_buffer;
 
+//ID_EXE_buffer id_exe_buffer; // output buffer for the decode stage and input for the execute stage
+
 typedef struct EXE_MEM_buffer
 {
-    const char* instruction;
-    int pc;
+    int pc; // correct pc value to use in the memory stage for branch instructions
     int alu_result;
     int rs2_val; // for store instructions
-    int rd;
-    int funct3;
-    int funct7;
+    int rd; // destination register number (0-31)
 } EXE_MEM_buffer;
+
+//EXE_MEM_buffer exe_mem_buffer; // output buffer for the execute stage and input for the memory stage
 
 typedef struct MEM_WB_buffer
 {
-    const char* instruction;
-    int pc;
     int mem_result; // for load instructions
     int alu_result; // for R-type and I-type instructions
-    int rd;
-    int funct3;
-    int funct7;
+    int rd; // destination register number (0-31)
 } MEM_WB_buffer;
 
 // Register file ==================================================================
@@ -85,4 +85,5 @@ bool MemRead = false; // whether to read from memory
 // control signals in order: 0 RegWrite, 1 Branch, 2 ALUSrc, 3 MemWrite, 4 MemtoReg, 5 MemRead 6 ALUOp (2 bits)
 // values are in decimal but represent binary values, so 0 is false and 1 is true for all except ALUOp 
 // which is 0 for R-type, 1 for I-type, and 2 for all other types
-int control_signals[7] = {0}; 
+int control_signals[7] = {0};
+

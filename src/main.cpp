@@ -1,6 +1,7 @@
 #include <iostream>
-#include "../header/fetch.h"
 #include "../header/datapath.h"
+#include "../header/fetch.h"
+#include "../header/decoder.h"
 
 // Debug mode flag
 bool debug = true;
@@ -32,19 +33,19 @@ int main(int argc, char* argv[])
 {
     // Open the input file containing the machine code instructions
     FILE* file = fopen(argv[1], "r");
-
+    // Declare the buffers
     IF_ID_buffer if_id_buffer; // input buffer for the decode stage
     ID_EXE_buffer id_exe_buffer; // output buffer for the decode stage and input
+    EXE_MEM_buffer exe_mem_buffer; // output buffer for the execute stage and input for the memory stage
+    MEM_WB_buffer mem_wb_buffer; // output buffer for the memory stage and input
 
     // Fetch the instruction
     while (Fetch(file, &if_id_buffer) > 0) // while we are still reading instructions
     {        
         // Decode the fetched instruction
-        Decode(reg_file, if_id_buffer, id_exe_buffer, control_signals, debug);
+        Decode(rf, &if_id_buffer, &id_exe_buffer, control_signals, debug);
 
-    //PC += 4; // Increment the program counter by 4 for the next instruction
     }
 
-    delete if_id_buffer; delete id_exe_buffer;
     return 0;
 }

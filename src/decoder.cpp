@@ -8,7 +8,7 @@ struct temp_str
     int size;
 };
 
-void Decode(int* reg_file, IF_ID_buffer* if_id_buffer, ID_EXE_buffer* id_exe_buffer, int* control_signals, bool debug)
+void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buffer, int *control_signals, bool debug)
 {
     // Extract the instruction from the IF/ID buffer
     const char* instruction = if_id_buffer->instruction;
