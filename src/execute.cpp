@@ -1,6 +1,6 @@
 #include "../header/execute.h"
 
-void execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int *control_signals, int* alu_ctrl, bool debug = false)
+void execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int* alu_ctrl, bool debug)
 {
     // Implementation for the execute stage
 
@@ -48,4 +48,8 @@ void execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int *
         {
             exe_mem_buffer->alu_result = id_exe_buffer->read_data1 | id_exe_buffer->immediate;
         }
+    }
+
+    // (Other ALU operations and side-effects would go here)
+
 }

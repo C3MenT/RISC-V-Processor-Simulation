@@ -26,7 +26,8 @@ int Fetch(FILE *file, IF_ID_buffer *if_id_buf)
         // skip lines until we get to the line we want to read
         fscanf(file, "%*[^\n]\n");
     }
-    return fscanf(file, "%s", if_id_buf->instruction); 
+    // read up to 32 chars or whitespace, store in instruction field of IF/ID buffer
+    return fscanf(file, "%32s", if_id_buf->instruction); 
     // fscanf returns the number of items successfully read, 
     // so it will return 0 if we have reached the end of the input stream 
     // and there are no more instructions to read.

@@ -31,9 +31,10 @@ bool debug = true;
 */
 int main(int argc, char* argv[])
 {
+    
     // Open the input file containing the machine code instructions
     FILE* file = fopen(argv[1], "r");
-
+    
     // Check if the file was opened successfully
     if (argv[1] == nullptr)
     {
@@ -65,21 +66,22 @@ int main(int argc, char* argv[])
 
     // Fetch the instruction
     while (Fetch(file, &if_id_buffer) > 0) // while we are still reading instructions
-    {        
+    {   
         cycle++; // increment cycle number
         if (debug)
         {std::cout << "Cycle " << cycle << std::endl;}
 
         // Decode the fetched instruction
-        Decode(rf, &if_id_buffer, &id_exe_buffer, control_signals, debug);
+        // `Decode` reads/writes global `control_signals`, so pass only debug flag
+        Decode(rf, &if_id_buffer, &id_exe_buffer, debug);
 
 
 
         // End debug report for the cycle
         if (debug)
         {
-
-            std::cout << "Register File: ";
+            std::cout << std::endl;
+            std::cout << "Register File: " << std::endl;
             for (int i = 0; i < 32; i++)
             {
                 std::cout << "x" << i << ": " << rf[i] << " ";
@@ -98,6 +100,7 @@ int main(int argc, char* argv[])
             std::cout << "ALUOp: " << control_signals[6] << " " << std::endl;
 
             std::cout << "ALU Zero Flag: " << alu_zero << " " << std::endl;
+            std::cout << "======================================================" << std::endl << std::endl;
         }
     }
 

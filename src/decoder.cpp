@@ -2,13 +2,7 @@
 #include <string.h>
 #include "../header/decoder.h"
 
-struct temp_str
-{
-    char* str;
-    int size;
-};
-
-void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buffer, int *control_signals, bool debug)
+void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buffer, bool debug)
 {
     // Extract the instruction from the IF/ID buffer
     const char* instruction = if_id_buffer->instruction;
@@ -134,6 +128,7 @@ void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buf
         if (*imm)
         {printf("Immediate: %d (or 0x%x)\n", decimal(imm), decimal(imm));};
     }
+
     // We need to populate the out buffer (ID/EXE) to fulfill the decode stage
     id_exe_buffer->pc = if_id_buffer->pc;
     if (*rs1)
@@ -160,42 +155,74 @@ void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buf
     if (type_name == "I")
     {
         // Set control signals for I-type instructions
-        id_exe_buffer->control_signals[0] = 1; // RegWrite
-        id_exe_buffer->control_signals[1] = 0; // ALUSrc
+        control_signals[0] = 1; // RegWrite
+        control_signals[1] = 0; // Branch
+        control_signals[2] = 1; // ALUSrc
+        control_signals[3] = 0; // MemWrite
+        control_signals[4] = 0; // MemtoReg
+        control_signals[5] = 0; // MemRead
+        control_signals[6] = 1; // ALUOp (1 for I-type)
+        control_signals[7] = 0; // Jump
     }
     else if (type_name == "S")
     {
         // Set control signals for S-type instructions
-        id_exe_buffer->control_signals[0] = 0; // RegWrite
-        id_exe_buffer->control_signals[1] = 1; // ALUSrc
+        control_signals[0] = 0; // RegWrite
+        control_signals[1] = 0; // Branch
+        control_signals[2] = 1; // ALUSrc
+        control_signals[3] = 1; // MemWrite
+        control_signals[4] = 0; // MemtoReg
+        control_signals[5] = 1; // MemRead
+        control_signals[6] = 1; // ALUOp (1 for I-type)
+        control_signals[7] = 0; // Jump
     }
     else if (type_name == "R")
     {
         // Set control signals for R-type instructions
-        id_exe_buffer->control_signals[0] = 1; // RegWrite
-        id_exe_buffer->control_signals[1] = 0; // ALUSrc
+        control_signals[0] = 1; // RegWrite
+        control_signals[1] = 0; // Branch
+        control_signals[2] = 0; // ALUSrc
+        control_signals[3] = 0; // MemWrite
+        control_signals[4] = 0; // MemtoReg
+        control_signals[5] = 0; // MemRead
+        control_signals[6] = 0; // ALUOp (0 for R-type)
+        control_signals[7] = 0; // Jump
     }
     else if (type_name == "SB")
     {
         // Set control signals for SB-type instructions
-        id_exe_buffer->control_signals[0] = 0; // RegWrite
-        id_exe_buffer->control_signals[1] = 0; // ALUSrc
+        control_signals[0] = 0; // RegWrite
+        control_signals[1] = 1; // Branch
+        control_signals[2] = 0; // ALUSrc
+        control_signals[3] = 0; // MemWrite
+        control_signals[4] = 0; // MemtoReg
+        control_signals[5] = 0; // MemRead
+        control_signals[6] = 1; // ALUOp (1 for I-type)
+        control_signals[7] = 0; // Jump
     }
     else if (type_name == "U")
     {
         // Set control signals for U-type instructions
-        id_exe_buffer->control_signals[0] = 1; // RegWrite
-        id_exe_buffer->control_signals[1] = 1; // ALUSrc
+        control_signals[0] = 1; // RegWrite
+        control_signals[1] = 0; // Branch
+        control_signals[2] = 1; // ALUSrc
+        control_signals[3] = 0; // MemWrite
+        control_signals[4] = 0; // MemtoReg
+        control_signals[5] = 0; // MemRead
+        control_signals[6] = 1; // ALUOp (1 for I-type)
+        control_signals[7] = 0; // Jump
     }
     else if (type_name == "UJ")
     {
         // Set control signals for UJ-type instructions
-        id_exe_buffer->control_signals[0] = 1; // RegWrite
-        id_exe_buffer->control_signals[1] = 1; // ALUSrc
-        id_exe_buffer->control_signals[2] = 0; // MemRead
-        id_exe_buffer->control_signals[3] = 0; // MemWrite
-        id_exe_buffer->control_signals[4] = 0; // Branch
-        id_exe_buffer->control_signals[5] = 1; // Jump
+        control_signals[0] = 1; // RegWrite
+        control_signals[1] = 0; // Branch
+        control_signals[2] = 1; // ALUSrc
+        control_signals[3] = 0; // MemWrite
+        control_signals[4] = 0; // MemtoReg
+        control_signals[5] = 0; // MemRead
+        control_signals[6] = 1; // ALUOp (1 for I-type)
+        control_signals[7] = 1; // Jump
     }
 
     // Garbage Collection (all dynamically allocated pointers)
@@ -312,7 +339,7 @@ const char* get_type(const char* opcode)
         {"1101111", "UJ"},
         {"1110011", "I"}
     };
-    
+
     for (int i = 0; i < 13; i++)
     {
         if (string_comp(opcode, opcodes[i][0]))

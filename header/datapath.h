@@ -36,10 +36,10 @@ bool MemWrite = false; // whether to write to memory
 bool MemtoReg = false; // whether to write back the memory result instead of the ALU result to the register file
 bool MemRead = false; // whether to read from memory
 */
-// control signals in order: 0 RegWrite, 1 Branch, 2 ALUSrc, 3 MemWrite, 4 MemtoReg, 5 MemRead 6 ALUOp (2 bits)
+// control signals in order: 0 RegWrite, 1 Branch, 2 ALUSrc, 3 MemWrite, 4 MemtoReg, 5 MemRead, 6 ALUOp (2 bits), 7 Jump
 // values are in decimal but represent binary values, so 0 is false and 1 is true for all except ALUOp 
 // which is 0 for R-type, 1 for I-type, and 2 for all other types
-extern int control_signals[7];
+extern int control_signals[8];
 
 // whether the result of the ALU operation is zero, used for branch instructions;
 // Guidelines say this must be a global var named "alu-zero" but we can't use a hyphen
@@ -48,7 +48,7 @@ extern int alu_zero;
 // // Buffers ====================================================================
 typedef struct IF_ID_buffer
 {
-    const char* instruction; // 32-bit machine code instruction as a string of 1s and 0s
+    char instruction[33]; // 32-bit machine code instruction as a string of 1s and 0s (32 characters + null terminator)
     int pc; // potentially used pc + 4 value
 } IF_ID_buffer;
 
@@ -66,8 +66,6 @@ typedef struct ID_EXE_buffer
     int rs1; // source register 1 number (0-31)
     int rs2; // source register 2 number (0-31) for R-type or 0 for I-type
     int rd; // destination register number (0-31)
-    // Control signals for use in the control stage ==========================================
-    int control_signals[7]; // control signals for the instruction, stored as an array of integers representing binary values (0 or 1)
 } ID_EXE_buffer;
 
 //ID_EXE_buffer id_exe_buffer; // output buffer for the decode stage and input for the execute stage

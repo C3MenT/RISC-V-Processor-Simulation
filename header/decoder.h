@@ -8,7 +8,7 @@
 /// code instruction and relevant fields to print out.
 
 /// @param debug boolean flag to enable debug output
-void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buffer, int *control_signals, bool debug = false);
+void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buffer, bool debug = false);
 
 /// @brief Returns the decimal representation of a binary number as an integer
 /// @param bin the binary number to convert as an integer
