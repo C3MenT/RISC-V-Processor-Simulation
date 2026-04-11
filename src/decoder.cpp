@@ -297,6 +297,22 @@ int string_comp(const char* a, const char* b)
 
 const char* get_type(const char* opcode)
 {
+    const char* opcodes[13][2] = {
+        {"0000011", "I"},
+        {"0001111", "I"},
+        {"0010011", "I"},
+        {"0010111", "U"},
+        {"0011011", "I"},
+        {"0100011", "S"},
+        {"0110011", "R"},
+        {"0110111", "U"},
+        {"0111011", "R"},
+        {"1100011", "SB"},
+        {"1100111", "I"},
+        {"1101111", "UJ"},
+        {"1110011", "I"}
+    };
+    
     for (int i = 0; i < 13; i++)
     {
         if (string_comp(opcode, opcodes[i][0]))

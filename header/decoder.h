@@ -2,21 +2,7 @@
 #include "datapath.h"
 
 // Global "Dictionary" of opcode values to their type
-const char* opcodes[13][2] = {
-        {"0000011", "I"},
-        {"0001111", "I"},
-        {"0010011", "I"},
-        {"0010111", "U"},
-        {"0011011", "I"},
-        {"0100011", "S"},
-        {"0110011", "R"},
-        {"0110111", "U"},
-        {"0111011", "R"},
-        {"1100011", "SB"},
-        {"1100111", "I"},
-        {"1101111", "UJ"},
-        {"1110011", "I"}
-    };
+//extern const char* opcodes[13][2];
 
 /// @brief Main decoding function determines the instruction type of a passed in machine
 /// code instruction and relevant fields to print out.
