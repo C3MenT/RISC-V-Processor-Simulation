@@ -108,10 +108,10 @@ void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buf
         type_name = "NOT FOUND";
     }
 
-    // Get name of instruction
-    name = get_name(opcode, funct3, funct7);
-
     if (debug){
+        // Get name of instruction
+        name = get_name(opcode, funct3, funct7);
+
         // Print Sequence (Now for debug purposes)
         printf("\nInstruction Type: %s\n", type_name);
         printf("Operation: %s\n", name);
@@ -145,6 +145,16 @@ void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buf
     // One is literally storing the name:
     //id_exe_buffer->instruction = name;
 
+    Control_Unit(type_name, opcode); // this will populate the control_signals global variable based on the instruction type
+
+    // Garbage Collection (all dynamically allocated pointers)
+    //delete[] rs1; delete[] rs2; delete[] rd; delete[] funct3; delete[] funct7;
+     //delete[] imm; 
+     delete[] imm1; delete[] imm2; delete[] imm3; delete[] imm4; //delete[] opcode; delete[] type_name; delete[] funct3; delete[] funct7;
+};
+
+void Control_Unit(const char* type_name, const char* opcode)
+{
     // Actual datapaths use the ALUOp control signal so we can do that also based upon
     // the opcode, funct3, and funct7 values. 
     // We need to store the control signals as an array of binary values regardless. So
@@ -152,6 +162,9 @@ void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buf
     // This is assumedly very complicated so our current method will just fill the values
     // in based on human interpretation of the instruction type and name.
 
+    // ALU Op is a bit more nuanced
+    // It is an integer value representing the actual 2-bit ALU Op control signal,
+    // where 0 is Load/Store, 1 is Branch, 2 is R-type, and 3 is I-type.
     if (type_name == "I")
     {
         // Set control signals for I-type instructions
@@ -159,9 +172,20 @@ void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buf
         control_signals[1] = 0; // Branch
         control_signals[2] = 1; // ALUSrc
         control_signals[3] = 0; // MemWrite
-        control_signals[4] = 0; // MemtoReg
-        control_signals[5] = 0; // MemRead
-        control_signals[6] = 1; // ALUOp (1 for I-type)
+        
+        if (decimal(opcode) == 3) // if we are doing a load instruction
+        {
+            control_signals[4] = 1; // MemtoReg
+            control_signals[5] = 1; // MemRead
+            control_signals[6] = 0; // ALUOp (0 for load)
+        }
+        else
+        {
+            control_signals[4] = 0; // MemtoReg
+            control_signals[5] = 0; // MemRead
+            control_signals[6] = 3; // ALUOp (3 for I-type)
+        }
+
         control_signals[7] = 0; // Jump
     }
     else if (type_name == "S")
@@ -173,7 +197,7 @@ void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buf
         control_signals[3] = 1; // MemWrite
         control_signals[4] = 0; // MemtoReg
         control_signals[5] = 1; // MemRead
-        control_signals[6] = 1; // ALUOp (1 for I-type)
+        control_signals[6] = 0; // ALUOp (0 for S-type)
         control_signals[7] = 0; // Jump
     }
     else if (type_name == "R")
@@ -185,7 +209,7 @@ void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buf
         control_signals[3] = 0; // MemWrite
         control_signals[4] = 0; // MemtoReg
         control_signals[5] = 0; // MemRead
-        control_signals[6] = 0; // ALUOp (0 for R-type)
+        control_signals[6] = 2; // ALUOp (2 for R-type)
         control_signals[7] = 0; // Jump
     }
     else if (type_name == "SB")
@@ -197,7 +221,7 @@ void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buf
         control_signals[3] = 0; // MemWrite
         control_signals[4] = 0; // MemtoReg
         control_signals[5] = 0; // MemRead
-        control_signals[6] = 1; // ALUOp (1 for I-type)
+        control_signals[6] = 1; // ALUOp (1 for SB-type)
         control_signals[7] = 0; // Jump
     }
     else if (type_name == "U")
@@ -209,7 +233,7 @@ void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buf
         control_signals[3] = 0; // MemWrite
         control_signals[4] = 0; // MemtoReg
         control_signals[5] = 0; // MemRead
-        control_signals[6] = 1; // ALUOp (1 for I-type)
+        control_signals[6] = 3; // ALUOp (3 for U-type) (for now)
         control_signals[7] = 0; // Jump
     }
     else if (type_name == "UJ")
@@ -221,14 +245,9 @@ void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buf
         control_signals[3] = 0; // MemWrite
         control_signals[4] = 0; // MemtoReg
         control_signals[5] = 0; // MemRead
-        control_signals[6] = 1; // ALUOp (1 for I-type)
+        control_signals[6] = 3; // ALUOp (3 for UJ-type) (for now)
         control_signals[7] = 1; // Jump
     }
-
-    // Garbage Collection (all dynamically allocated pointers)
-    //delete[] rs1; delete[] rs2; delete[] rd; delete[] funct3; delete[] funct7;
-     //delete[] imm; 
-     delete[] imm1; delete[] imm2; delete[] imm3; delete[] imm4;
 };
 
 int decimal(const char* bin)

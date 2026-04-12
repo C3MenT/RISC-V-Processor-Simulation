@@ -64,10 +64,12 @@ int main(int argc, char* argv[])
 
     int cycle = 0; // keep track of cycle number for debug output
 
-    // Fetch the instruction
-    while (Fetch(file, &if_id_buffer) > 0) // while we are still reading instructions
+    // Main simulation loop: Fetch, Decode, Execute, Memory, Write Back
+    // We execute the stages in reverse order to simulate the pipelining, so we call write back first and fetch last.
+    // This is literally the case as the stages are happening simultaneously, so later ones would finish earlier in the code.
+    // This also incidentally prevents using buffer values intended for future cycles in the current cycle, which would be incorrect.
+    do
     {   
-        cycle++; // increment cycle number
         if (debug)
         {std::cout << "Cycle " << cycle << std::endl;}
 
@@ -75,6 +77,11 @@ int main(int argc, char* argv[])
         // `Decode` reads/writes global `control_signals`, so pass only debug flag
         Decode(rf, &if_id_buffer, &id_exe_buffer, debug);
 
+        // Execute the instruction
+
+        // Memory stage
+
+        // Write back stage
 
 
         // End debug report for the cycle
@@ -102,7 +109,9 @@ int main(int argc, char* argv[])
             std::cout << "ALU Zero Flag: " << alu_zero << " " << std::endl;
             std::cout << "======================================================" << std::endl << std::endl;
         }
-    }
+        cycle++; // increment cycle number
+    // Fetch the instruction
+    } while (Fetch(file, &if_id_buffer) > 0); // while we are still reading instructions
 
     return 0;
 }

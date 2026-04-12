@@ -45,6 +45,10 @@ extern int control_signals[8];
 // Guidelines say this must be a global var named "alu-zero" but we can't use a hyphen
 extern int alu_zero;
 
+// the target address to update the program counter to if we are taking a branch
+// Guidelines say this must be a global var initialized to 0, used by Fetch() and Execute() functions
+extern int branch_target; 
+
 // // Buffers ====================================================================
 typedef struct IF_ID_buffer
 {
@@ -66,6 +70,12 @@ typedef struct ID_EXE_buffer
     int rs1; // source register 1 number (0-31)
     int rs2; // source register 2 number (0-31) for R-type or 0 for I-type
     int rd; // destination register number (0-31)
+    // Buffered Control Signals =====================================================================
+     // control signals in order: 0 RegWrite, 1 Branch, 2 ALUSrc, 3 MemWrite, 4 MemtoReg, 5 MemRead, 6 ALUOp (2 bits), 7 Jump
+     // values are in decimal but represent binary values, so 0 is false and 1 is true for all except ALUOp 
+     // which is 0 for R-type, 1 for I-type, and 2 for all other types
+     // temporarily holds the decoded control signals for the next cycle while the current are used in the 
+    int control_signals[8];
 } ID_EXE_buffer;
 
 //ID_EXE_buffer id_exe_buffer; // output buffer for the decode stage and input for the execute stage
