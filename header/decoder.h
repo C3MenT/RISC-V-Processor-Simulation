@@ -2,27 +2,19 @@
 #include "datapath.h"
 
 // Global "Dictionary" of opcode values to their type
-const char* opcodes[13][2] = {
-        {"0000011", "I"},
-        {"0001111", "I"},
-        {"0010011", "I"},
-        {"0010111", "U"},
-        {"0011011", "I"},
-        {"0100011", "S"},
-        {"0110011", "R"},
-        {"0110111", "U"},
-        {"0111011", "R"},
-        {"1100011", "SB"},
-        {"1100111", "I"},
-        {"1101111", "UJ"},
-        {"1110011", "I"}
-    };
+//extern const char* opcodes[13][2];
 
 /// @brief Main decoding function determines the instruction type of a passed in machine
 /// code instruction and relevant fields to print out.
 
 /// @param debug boolean flag to enable debug output
-void Decode(int* reg_file, IF_ID_buffer& if_id_buffer, ID_EXE_buffer& id_exe_buffer, int* control_signals, bool debug = false);
+void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buffer, bool debug = false);
+
+/// @brief Populates the control signals based on given instruction type. 
+/// This is used by the ALU Control to determine which ALU operation to perform in the execute stage.
+/// @param type_name Type name as a string (R, I, S, SB, U, UJ) recieved from get_type() function
+/// @param opcode the opcode of the instruction as a string (7-digit binary) recieved from get_opcode() function for special distinctions
+void Control_Unit(const char* type_name, const char* opcode);
 
 /// @brief Returns the decimal representation of a binary number as an integer
 /// @param bin the binary number to convert as an integer

@@ -1,6 +1,7 @@
 #include <iostream>
-#include "../header/fetch.h"
 #include "../header/datapath.h"
+#include "../header/fetch.h"
+#include "../header/decoder.h"
 
 // Debug mode flag
 bool debug = true;
@@ -30,21 +31,87 @@ bool debug = true;
 */
 int main(int argc, char* argv[])
 {
+    
     // Open the input file containing the machine code instructions
     FILE* file = fopen(argv[1], "r");
-
-    IF_ID_buffer if_id_buffer; // input buffer for the decode stage
-    ID_EXE_buffer id_exe_buffer; // output buffer for the decode stage and input
-
-    // Fetch the instruction
-    while (Fetch(file, &if_id_buffer) > 0) // while we are still reading instructions
-    {        
-        // Decode the fetched instruction
-        Decode(reg_file, if_id_buffer, id_exe_buffer, control_signals, debug);
-
-    //PC += 4; // Increment the program counter by 4 for the next instruction
+    
+    // Check if the file was opened successfully
+    if (argv[1] == nullptr)
+    {
+        std::cerr << "Usage: ./riscv_simulator <input_file>" << std::endl;
+        return 1;
     }
 
-    delete if_id_buffer; delete id_exe_buffer;
+    // Declare the buffers
+    IF_ID_buffer if_id_buffer; // input buffer for the decode stage
+    ID_EXE_buffer id_exe_buffer; // output buffer for the decode stage and input
+    EXE_MEM_buffer exe_mem_buffer; // output buffer for the execute stage and input for the memory stage
+    MEM_WB_buffer mem_wb_buffer; // output buffer for the memory stage and input
+
+    // Loose control signals to be set
+    pc = 0; // Initialize the pc
+    alu_zero = 0; // Initialize the alu_zero flag to 0
+
+    // Initialize the register file and control signals to 0
+    for (int i = 0; i < 32; i++)
+    {
+        rf[i] = 0;
+    }
+    for (int i = 0; i < 7; i++)
+    {
+        control_signals[i] = 0;
+    }
+
+    int cycle = 0; // keep track of cycle number for debug output
+
+    // Main simulation loop: Fetch, Decode, Execute, Memory, Write Back
+    // We execute the stages in reverse order to simulate the pipelining, so we call write back first and fetch last.
+    // This is literally the case as the stages are happening simultaneously, so later ones would finish earlier in the code.
+    // This also incidentally prevents using buffer values intended for future cycles in the current cycle, which would be incorrect.
+    do
+    {   
+        if (debug)
+        {std::cout << "Cycle " << cycle << std::endl;}
+
+        // Decode the fetched instruction
+        // `Decode` reads/writes global `control_signals`, so pass only debug flag
+        Decode(rf, &if_id_buffer, &id_exe_buffer, debug);
+
+        // Execute the instruction
+
+        // Memory stage
+
+        // Write back stage
+
+
+        // End debug report for the cycle
+        if (debug)
+        {
+            std::cout << std::endl;
+            std::cout << "Register File: " << std::endl;
+            for (int i = 0; i < 32; i++)
+            {
+                std::cout << "x" << i << ": " << rf[i] << " ";
+                if (i % 8 == 7)
+                {std::cout << std::endl;}
+            }
+            std::cout << std::endl;
+
+            std::cout << "Control Signals: " << std::endl;
+            std::cout << "RegWrite: " << control_signals[0] << " " << std::endl;
+            std::cout << "Branch: " << control_signals[1] << " " << std::endl;
+            std::cout << "ALUSrc: " << control_signals[2] << " " << std::endl;
+            std::cout << "MemWrite: " << control_signals[3] << " " << std::endl;
+            std::cout << "MemtoReg: " << control_signals[4] << " " << std::endl;
+            std::cout << "MemRead: " << control_signals[5] << " " << std::endl;
+            std::cout << "ALUOp: " << control_signals[6] << " " << std::endl;
+
+            std::cout << "ALU Zero Flag: " << alu_zero << " " << std::endl;
+            std::cout << "======================================================" << std::endl << std::endl;
+        }
+        cycle++; // increment cycle number
+    // Fetch the instruction
+    } while (Fetch(file, &if_id_buffer) > 0); // while we are still reading instructions
+
     return 0;
 }
