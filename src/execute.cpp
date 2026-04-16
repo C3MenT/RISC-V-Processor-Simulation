@@ -15,11 +15,11 @@ void execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int a
         {
             std::cout << "addition" << std::endl;
         }
-        if (control_signals[7] == 0) // if we are doing a R-type instruction
+        if (control_signals[6] == 0) // if we are doing a R-type instruction
         {
             exe_mem_buffer->alu_result = id_exe_buffer->read_data1 + id_exe_buffer->read_data2;
         }
-        else if (control_signals[7] == 1) // if we are doing an I-type instruction
+        else if (control_signals[6] == 1) // if we are doing an I-type instruction
         {
             exe_mem_buffer->alu_result = id_exe_buffer->read_data1 + id_exe_buffer->immediate;
         }
@@ -30,11 +30,11 @@ void execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int a
         {
             std::cout << "subtraction" << std::endl;
         }
-        if (control_signals[7] == 0) // if we are doing a R-type instruction
+        if (control_signals[6] == 0) // if we are doing a R-type instruction
         {
             exe_mem_buffer->alu_result = id_exe_buffer->read_data1 - id_exe_buffer->read_data2;
         }
-        else if (control_signals[7] == 1) // if we are doing an I-type instruction
+        else if (control_signals[6] == 1) // if we are doing an I-type instruction
         {
             exe_mem_buffer->alu_result = id_exe_buffer->read_data1 - id_exe_buffer->immediate;
         }
@@ -45,11 +45,11 @@ void execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int a
         {
             std::cout << "bitwise AND" << std::endl;
         }
-        if (control_signals[7] == 0) // if we are doing a R-type instruction
+        if (control_signals[6] == 0) // if we are doing a R-type instruction
         {
             exe_mem_buffer->alu_result = id_exe_buffer->read_data1 & id_exe_buffer->read_data2;
         }
-        else if (control_signals[7] == 1) // if we are doing an I-type instruction
+        else if (control_signals[6] == 1) // if we are doing an I-type instruction
         {
             exe_mem_buffer->alu_result = id_exe_buffer->read_data1 & id_exe_buffer->immediate;
         }
@@ -60,11 +60,11 @@ void execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int a
         {
             std::cout << "bitwise OR" << std::endl;
         }
-        if (control_signals[7] == 0) // if we are doing a R-type instruction
+        if (control_signals[6] == 0) // if we are doing a R-type instruction
         {
             exe_mem_buffer->alu_result = id_exe_buffer->read_data1 | id_exe_buffer->read_data2;
         }
-        else if (control_signals[7] == 1) // if we are doing an I-type instruction
+        else if (control_signals[6] == 1) // if we are doing an I-type instruction
         {
             exe_mem_buffer->alu_result = id_exe_buffer->read_data1 | id_exe_buffer->immediate;
         }
