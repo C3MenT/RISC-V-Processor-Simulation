@@ -97,4 +97,6 @@ typedef struct MEM_WB_buffer
     int rd; // destination register number (0-31)
 } MEM_WB_buffer;
 
+extern int d_mem[32];
 
+extern int total_clock_cycles;
