@@ -199,6 +199,7 @@ void Control_Unit(const char* type_name, const char* opcode)
         control_signals[5] = 1; // MemRead
         control_signals[6] = 0; // ALUOp (0 for S-type)
         control_signals[7] = 0; // Jump
+        
     }
     else if (type_name == "R")
     {

@@ -2,7 +2,7 @@
 #include "../header/execute.h"
 
 // Implementation for the execute stage
-void execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int alu_ctrl[], bool debug = false)
+void Execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int alu_ctrl[], bool debug)
 {
     if (debug)
     {

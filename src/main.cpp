@@ -2,6 +2,9 @@
 #include "../header/datapath.h"
 #include "../header/fetch.h"
 #include "../header/decoder.h"
+#include "../header/execute.h"
+#include "../header/mem.h"
+#include "../header/writeback.h"
 
 // Debug mode flag
 bool debug = true;
@@ -73,16 +76,18 @@ int main(int argc, char* argv[])
         if (debug)
         {std::cout << "Cycle " << cycle << std::endl;}
 
+        // Writeback Stage
+        Writeback(&mem_wb_buffer);
+
+        // Memory Stage
+        Mem(&exe_mem_buffer, &mem_wb_buffer, exe_mem_buffer.alu_result);
+
+        // Execute Stage
+        Execute(&id_exe_buffer, &exe_mem_buffer, alu_ctrl);
+
         // Decode the fetched instruction
         // `Decode` reads/writes global `control_signals`, so pass only debug flag
         Decode(rf, &if_id_buffer, &id_exe_buffer, debug);
-
-        // Execute the instruction
-
-        // Memory stage
-
-        // Write back stage
-
 
         // End debug report for the cycle
         if (debug)
