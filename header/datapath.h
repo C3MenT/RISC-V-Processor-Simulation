@@ -41,6 +41,8 @@ bool MemRead = false; // whether to read from memory
 // which is 0 for R-type, 1 for I-type, and 2 for all other types
 extern int control_signals[8];
 
+extern int alu_ctrl[4]; // For exe stage
+
 // whether the result of the ALU operation is zero, used for branch instructions;
 // Guidelines say this must be a global var named "alu-zero" but we can't use a hyphen
 extern int alu_zero;
@@ -75,7 +77,6 @@ typedef struct ID_EXE_buffer
      // values are in decimal but represent binary values, so 0 is false and 1 is true for all except ALUOp 
      // which is 0 for R-type, 1 for I-type, and 2 for all other types
      // temporarily holds the decoded control signals for the next cycle while the current are used in the 
-    int control_signals[8];
 } ID_EXE_buffer;
 
 //ID_EXE_buffer id_exe_buffer; // output buffer for the decode stage and input for the execute stage

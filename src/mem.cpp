@@ -2,7 +2,7 @@
 #include "../header/mem.h"
 
 
-void mem(EXE_MEM_buffer *exe_mem_buffer, MEM_WB_buffer *mem_wb_buffer, int address){
+void Mem(EXE_MEM_buffer *exe_mem_buffer, MEM_WB_buffer *mem_wb_buffer, int address){
     int index= address/4;
     int value = d_mem[index];   //dmem is declared with the global variables
     if(control_signals[5]==1) //this means its load instruction
