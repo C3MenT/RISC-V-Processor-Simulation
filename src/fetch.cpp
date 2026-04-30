@@ -1,8 +1,15 @@
 #include <stdio.h>
 #include "../header/fetch.h"
 
-int Fetch(FILE *file, IF_ID_buffer *if_id_buf)
+int Fetch(FILE *file, IF_ID_buffer *if_id_buf, bool debug)
 {
+    if (debug)
+    {
+        printf("FETCH STAGE ===============================\n");
+        printf("Reading instruction at PC: %d\n", pc);
+        printf("============================================\n");
+    }
+    
     /*
         Fetch reads an input file of machine instruction lines.
         Each line is a 32-bit instruction represented as a string of 1s and 0s.

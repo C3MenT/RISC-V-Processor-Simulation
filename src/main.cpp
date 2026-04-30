@@ -35,6 +35,7 @@ bool debug = true;
 int main(int argc, char* argv[])
 {
     
+    /*
     // Open the input file containing the machine code instructions
     FILE* file = fopen(argv[1], "r");
     
@@ -44,10 +45,31 @@ int main(int argc, char* argv[])
         std::cerr << "Usage: ./riscv_simulator <input_file>" << std::endl;
         return 1;
     }
+    */
+    // For testing purposes, we will read from standard input instead of a file
+    printf("Enter the program file name to run: ");
+    char* input_file;
+    std::fscanf(stdin, "%s", input_file);
+    FILE* file = fopen(input_file, "r");
 
-    // Declare the buffers
-    IF_ID_buffer if_id_buffer; // input buffer for the decode stage
-    ID_EXE_buffer id_exe_buffer; // output buffer for the decode stage and input
+    // Declare the buffers //
+    // input buffer for the decode stage
+    IF_ID_buffer if_id_buffer; 
+    // initialize the pc value in the IF/ID buffer to 0
+    if_id_buffer.pc = 0;
+    // initialize the instruction field in the IF/ID buffer to all 0s
+    std::fill(std::begin(if_id_buffer.instruction), std::end(if_id_buffer.instruction), 0); 
+    
+    // output buffer for the decode stage and input
+    ID_EXE_buffer id_exe_buffer; 
+    id_exe_buffer.pc = 0; // initialize pc value in ID/EXE buffer to 0
+    id_exe_buffer.read_data1 = 0; // initialize read data 1 value
+    id_exe_buffer.read_data2 = 0; // initialize read data 2 value
+    id_exe_buffer.immediate = 0; // initialize immediate value
+    id_exe_buffer.rs1 = 0; // initialize rs1 value
+    id_exe_buffer.rs2 = 0; // initialize rs2 value
+    id_exe_buffer.rd = 0; // initialize rd value
+
     EXE_MEM_buffer exe_mem_buffer; // output buffer for the execute stage and input for the memory stage
     MEM_WB_buffer mem_wb_buffer; // output buffer for the memory stage and input
 
@@ -60,10 +82,22 @@ int main(int argc, char* argv[])
     {
         rf[i] = 0;
     }
-    for (int i = 0; i < 7; i++)
+    /*for (int i = 0; i < 7; i++)
     {
         control_signals[i] = 0;
-    }
+    }*/
+    // Initialize control signals to 0
+    RegWrite = 0;
+    Branch = 0;
+    ALUSrc = 0;
+    MemWrite = 0;
+    MemtoReg = 0;
+    MemRead = 0;
+    Jump = 0;
+    ALUOp[0] = 0;
+    ALUOp[1] = 0;
+    
+        // Initialize the data memory to 0
 
     int cycle = 0; // keep track of cycle number for debug output
 
@@ -77,13 +111,13 @@ int main(int argc, char* argv[])
         {std::cout << "Cycle " << cycle << std::endl;}
 
         // Writeback Stage
-        Writeback(&mem_wb_buffer);
+        Writeback(&mem_wb_buffer, debug);
 
         // Memory Stage
-        Mem(&exe_mem_buffer, &mem_wb_buffer, exe_mem_buffer.alu_result);
+        Mem(&exe_mem_buffer, &mem_wb_buffer, debug);
 
         // Execute Stage
-        Execute(&id_exe_buffer, &exe_mem_buffer, alu_ctrl);
+        Execute(&id_exe_buffer, &exe_mem_buffer, alu_ctrl, debug);
 
         // Decode the fetched instruction
         // `Decode` reads/writes global `control_signals`, so pass only debug flag
@@ -103,20 +137,21 @@ int main(int argc, char* argv[])
             std::cout << std::endl;
 
             std::cout << "Control Signals: " << std::endl;
-            std::cout << "RegWrite: " << control_signals[0] << " " << std::endl;
-            std::cout << "Branch: " << control_signals[1] << " " << std::endl;
-            std::cout << "ALUSrc: " << control_signals[2] << " " << std::endl;
-            std::cout << "MemWrite: " << control_signals[3] << " " << std::endl;
-            std::cout << "MemtoReg: " << control_signals[4] << " " << std::endl;
-            std::cout << "MemRead: " << control_signals[5] << " " << std::endl;
-            std::cout << "ALUOp: " << control_signals[6] << " " << std::endl;
+            //std::cout << "RegWrite: " << control_signals[0] << " " << std::endl;
+            std::cout << "RegWrite: " << RegWrite << " " << std::endl;
+            std::cout << "Branch: " << Branch << " " << std::endl;
+            std::cout << "ALUSrc: " << ALUSrc << " " << std::endl;
+            std::cout << "MemWrite: " << MemWrite << " " << std::endl;
+            std::cout << "MemtoReg: " << MemtoReg << " " << std::endl;
+            std::cout << "MemRead: " << MemRead << " " << std::endl;
+            std::cout << "ALUOp: " << ALUOp[0] << ALUOp[1] << " " << std::endl;
 
             std::cout << "ALU Zero Flag: " << alu_zero << " " << std::endl;
             std::cout << "======================================================" << std::endl << std::endl;
         }
         cycle++; // increment cycle number
     // Fetch the instruction
-    } while (Fetch(file, &if_id_buffer) > 0); // while we are still reading instructions
+    } while (Fetch(file, &if_id_buffer, debug) > 0); // while we are still reading instructions
 
     return 0;
 }

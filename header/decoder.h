@@ -14,7 +14,15 @@ void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buf
 /// This is used by the ALU Control to determine which ALU operation to perform in the execute stage.
 /// @param type_name Type name as a string (R, I, S, SB, U, UJ) recieved from get_type() function
 /// @param opcode the opcode of the instruction as a string (7-digit binary) recieved from get_opcode() function for special distinctions
-void Control_Unit(const char* type_name, const char* opcode);
+/// @param funct3 the funct3 field of the instruction as a string (3-digit binary)
+/// @param funct7 the funct7 field of the instruction as a string (7-digit binary)
+void ControlUnit(const char* type_name, const char* opcode, const char* funct3, const char* funct7);
+
+/// @brief Populates the ALU control signals based on the ALUOp control signal and the funct3 and funct7 fields of the instruction
+/// @param alu_op the ALUOp control signal as an array of 2 integers representing a 2-bit binary value
+/// @param funct3 the funct3 field of the instruction as an integer
+/// @param funct7 the funct7 field of the instruction as an integer
+void ALUControl(int alu_op[2], int funct3, int funct7);
 
 /// @brief Returns the decimal representation of a binary number as an integer
 /// @param bin the binary number to convert as an integer

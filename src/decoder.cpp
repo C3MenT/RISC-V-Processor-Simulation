@@ -113,6 +113,7 @@ void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buf
         name = get_name(opcode, funct3, funct7);
 
         // Print Sequence (Now for debug purposes)
+        printf("\nDECODE STAGE ===============================\n");
         printf("\nInstruction Type: %s\n", type_name);
         printf("Operation: %s\n", name);
         if (*rs1)
@@ -127,6 +128,7 @@ void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buf
         {printf("Funct7: %d\n", decimal(funct7));}
         if (*imm)
         {printf("Immediate: %d (or 0x%x)\n", decimal(imm), decimal(imm));};
+        printf("============================================\n");
     }
 
     // We need to populate the out buffer (ID/EXE) to fulfill the decode stage
@@ -145,7 +147,7 @@ void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buf
     // One is literally storing the name:
     //id_exe_buffer->instruction = name;
 
-    Control_Unit(type_name, opcode); // this will populate the control_signals global variable based on the instruction type
+    ControlUnit(type_name, opcode, funct3, funct7); // this will populate the control_signals global variable based on the instruction type
 
     // Garbage Collection (all dynamically allocated pointers)
     //delete[] rs1; delete[] rs2; delete[] rd; delete[] funct3; delete[] funct7;
@@ -153,7 +155,7 @@ void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buf
      delete[] imm1; delete[] imm2; delete[] imm3; delete[] imm4; //delete[] opcode; delete[] type_name; delete[] funct3; delete[] funct7;
 };
 
-void Control_Unit(const char* type_name, const char* opcode)
+void ControlUnit(const char* type_name, const char* opcode, const char* funct3, const char* funct7)
 {
     // Actual datapaths use the ALUOp control signal so we can do that also based upon
     // the opcode, funct3, and funct7 values. 
@@ -168,88 +170,194 @@ void Control_Unit(const char* type_name, const char* opcode)
     if (type_name == "I")
     {
         // Set control signals for I-type instructions
-        control_signals[0] = 1; // RegWrite
-        control_signals[1] = 0; // Branch
-        control_signals[2] = 1; // ALUSrc
-        control_signals[3] = 0; // MemWrite
+        //control_signals[0] = 1; // RegWrite
+        RegWrite = 1;
+        //control_signals[1] = 0; // Branch
+        Branch = 0;
+        //control_signals[2] = 1; // ALUSrc
+        ALUSrc = 1;
+        //control_signals[3] = 0; // MemWrite
+        MemWrite = 0;
         
         if (decimal(opcode) == 3) // if we are doing a load instruction
         {
-            control_signals[4] = 1; // MemtoReg
-            control_signals[5] = 1; // MemRead
-            control_signals[6] = 0; // ALUOp (0 for load)
+            //control_signals[4] = 1; // MemtoReg
+            MemtoReg = 1;
+            //control_signals[5] = 1; // MemRead
+            MemRead = 1;
+            //control_signals[6] = 0; // ALUOp (0 for load)
+            ALUOp[0] = 0; ALUOp[1] = 0;
         }
         else
         {
-            control_signals[4] = 0; // MemtoReg
-            control_signals[5] = 0; // MemRead
-            control_signals[6] = 3; // ALUOp (3 for I-type)
+            //control_signals[4] = 0; // MemtoReg
+            MemtoReg = 0;
+            //control_signals[5] = 0; // MemRead
+            MemRead = 0;
+            //control_signals[6] = 3; // ALUOp (3 for I-type)
+            ALUOp[0] = 1; ALUOp[1] = 1;
         }
 
-        control_signals[7] = 0; // Jump
+        //control_signals[7] = 0; // Jump
+        Jump = 0;
     }
     else if (type_name == "S")
     {
         // Set control signals for S-type instructions
-        control_signals[0] = 0; // RegWrite
-        control_signals[1] = 0; // Branch
-        control_signals[2] = 1; // ALUSrc
-        control_signals[3] = 1; // MemWrite
-        control_signals[4] = 0; // MemtoReg
-        control_signals[5] = 1; // MemRead
-        control_signals[6] = 0; // ALUOp (0 for S-type)
-        control_signals[7] = 0; // Jump
+        //control_signals[0] = 0; // RegWrite
+        RegWrite = 0;
+        //control_signals[1] = 0; // Branch
+        Branch = 0;
+        //control_signals[2] = 1; // ALUSrc
+        ALUSrc = 1;
+        //control_signals[3] = 1; // MemWrite
+        MemWrite = 1;
+        //control_signals[4] = 0; // MemtoReg
+        MemtoReg = 0;
+        //control_signals[5] = 1; // MemRead
+        MemRead = 1;
+        //control_signals[6] = 0; // ALUOp (0 for S-type)
+        ALUOp[0] = 0; ALUOp[1] = 0;
+        //control_signals[7] = 0; // Jump
+        Jump = 0;
         
     }
     else if (type_name == "R")
     {
         // Set control signals for R-type instructions
-        control_signals[0] = 1; // RegWrite
-        control_signals[1] = 0; // Branch
-        control_signals[2] = 0; // ALUSrc
-        control_signals[3] = 0; // MemWrite
-        control_signals[4] = 0; // MemtoReg
-        control_signals[5] = 0; // MemRead
-        control_signals[6] = 2; // ALUOp (2 for R-type)
-        control_signals[7] = 0; // Jump
+        //control_signals[0] = 1; // RegWrite
+        RegWrite = 1;
+        //control_signals[1] = 0; // Branch
+        Branch = 0;
+        //control_signals[2] = 0; // ALUSrc
+        ALUSrc = 0;
+        //control_signals[3] = 0; // MemWrite
+        MemWrite = 0;
+        //control_signals[4] = 0; // MemtoReg
+        MemtoReg = 0;
+        //control_signals[5] = 0; // MemRead
+        MemRead = 0;
+        //control_signals[6] = 2; // ALUOp (2 for R-type)
+        ALUOp[0] = 1; ALUOp[1] = 0;
+        //control_signals[7] = 0; // Jump
+        Jump = 0;
     }
     else if (type_name == "SB")
     {
         // Set control signals for SB-type instructions
-        control_signals[0] = 0; // RegWrite
-        control_signals[1] = 1; // Branch
-        control_signals[2] = 0; // ALUSrc
-        control_signals[3] = 0; // MemWrite
-        control_signals[4] = 0; // MemtoReg
-        control_signals[5] = 0; // MemRead
-        control_signals[6] = 1; // ALUOp (1 for SB-type)
-        control_signals[7] = 0; // Jump
+        //control_signals[0] = 0; // RegWrite
+        RegWrite = 0;
+        //control_signals[1] = 1; // Branch
+        Branch = 1;
+        //control_signals[2] = 0; // ALUSrc
+        ALUSrc = 0;
+        //control_signals[3] = 0; // MemWrite
+        MemWrite = 0;
+        //control_signals[4] = 0; // MemtoReg
+        MemtoReg = 0;
+        //control_signals[5] = 0; // MemRead
+        MemRead = 0;
+        //control_signals[6] = 1; // ALUOp (1 for SB-type)
+        ALUOp[0] = 0; ALUOp[1] = 1;
+        //control_signals[7] = 0; // Jump
+        Jump = 0;
     }
     else if (type_name == "U")
     {
         // Set control signals for U-type instructions
-        control_signals[0] = 1; // RegWrite
-        control_signals[1] = 0; // Branch
-        control_signals[2] = 1; // ALUSrc
-        control_signals[3] = 0; // MemWrite
-        control_signals[4] = 0; // MemtoReg
-        control_signals[5] = 0; // MemRead
-        control_signals[6] = 3; // ALUOp (3 for U-type) (for now)
-        control_signals[7] = 0; // Jump
+        //control_signals[0] = 1; // RegWrite
+        RegWrite = 1;
+        //control_signals[1] = 0; // Branch
+        Branch = 0;
+        //control_signals[2] = 1; // ALUSrc
+        ALUSrc = 1;
+        //control_signals[3] = 0; // MemWrite
+        MemWrite = 0;
+        //control_signals[4] = 0; // MemtoReg
+        MemtoReg = 0;
+        //control_signals[5] = 0; // MemRead
+        MemRead = 0;
+        //control_signals[6] = 3; // ALUOp (3 for U-type) (for now)
+        ALUOp[0] = 1; ALUOp[1] = 1;
+        //control_signals[7] = 0; // Jump
+        Jump = 0;
     }
     else if (type_name == "UJ")
     {
         // Set control signals for UJ-type instructions
-        control_signals[0] = 1; // RegWrite
-        control_signals[1] = 0; // Branch
-        control_signals[2] = 1; // ALUSrc
-        control_signals[3] = 0; // MemWrite
-        control_signals[4] = 0; // MemtoReg
-        control_signals[5] = 0; // MemRead
-        control_signals[6] = 3; // ALUOp (3 for UJ-type) (for now)
-        control_signals[7] = 1; // Jump
+        //control_signals[0] = 1; // RegWrite
+        RegWrite = 1;
+        //control_signals[1] = 0; // Branch
+        Branch = 0;
+        //control_signals[2] = 1; // ALUSrc
+        ALUSrc = 1;
+        //control_signals[3] = 0; // MemWrite
+        MemWrite = 0;
+        //control_signals[4] = 0; // MemtoReg
+        MemtoReg = 0;
+        //control_signals[5] = 0; // MemRead
+        MemRead = 0;
+        //control_signals[6] = 3; // ALUOp (3 for UJ-type) (for now)
+        ALUOp[0] = 1; ALUOp[1] = 1;
+        //control_signals[7] = 1; // Jump
+        Jump = 1;
     }
+    // set the actual ALU control signals based on the ALUOp and funct3/funct7 values
+    ALUControl(ALUOp, decimal(funct3), decimal(funct7)); 
 };
+
+void ALUControl(int alu_op[2], int funct3, int funct7)
+{
+    // ALU Control is determined by the ALUOp control signal as well as the funct3 and funct7 fields of the instruction
+    // It is a 4-bit control signal that determines the actual operation the ALU performs.
+    // For R-type instructions, the ALUOp is 2, and the funct3 and funct7 fields determine the specific operation (e.g., add, sub, and, or, etc.).
+    // For I-type instructions, the ALUOp is 3, and the funct3 field determines the specific operation (e.g., addi, slti, xori, etc.).
+    // For load/store instructions, the ALUOp is 0, and the ALU performs an addition to calculate the memory address.
+    // For branch instructions, the ALUOp is 1, and the ALU performs a subtraction to compare the two register values.
+
+    // This function will set the global alu_ctrl variable based on these inputs for use in the execute stage.
+
+    alu_ctrl[0] = 0; alu_ctrl[1] = 0; alu_ctrl[2] = 0; alu_ctrl[3] = 0; // default to AND (all 0s)
+    
+    if (alu_op[0] == 0 && alu_op[1] == 0) // Load/Store
+    {
+        // ALU performs addition to calculate memory address
+        alu_ctrl[0] = 0; alu_ctrl[1] = 0; alu_ctrl[2] = 1; alu_ctrl[3] = 0; // ADD
+    }
+    else if (alu_op[0] == 0 && alu_op[1] == 1) // Branch
+    {
+        // ALU performs subtraction to compare the two register values
+        alu_ctrl[0] = 0; alu_ctrl[1] = 1; alu_ctrl[2] = 0; alu_ctrl[3] = 0; // SUB
+    }
+    else if (alu_op[0] == 1 && alu_op[1] == 0) // R-type
+    {
+        switch (funct3)
+        {
+            case 0: // ADD or SUB
+                if (funct7 == 32) // SUB
+                {
+                    alu_ctrl[0] = 0; alu_ctrl[1] = 1; alu_ctrl[2] = 0; alu_ctrl[3] = 0; // SUB
+                }
+                else // ADD
+                {
+                    alu_ctrl[0] = 0; alu_ctrl[1] = 0; alu_ctrl[2] = 1; alu_ctrl[3] = 0; // ADD
+                }
+                break;
+            case 7: // AND
+                alu_ctrl[0] = 0; alu_ctrl[1] = 0; alu_ctrl[2] = 0; alu_ctrl[3] = 0; // AND
+                break;
+            case 6: // OR
+                alu_ctrl[0] = 1; alu_ctrl[1] = 0; alu_ctrl[2] = 0; alu_ctrl[3] = 0; // OR
+                break;
+            case 4: // XOR
+                alu_ctrl[0] = 1; alu_ctrl[1] = 1; alu_ctrl[2] = 0; alu_ctrl[3] = 0; // XOR
+                break;
+            case 2: // SLT
+                alu_ctrl[0] = 1; alu_ctrl[1] = 1; alu_ctrl[2] = 1; alu_ctrl[3] = 0; // SLT
+                break;
+        }
+    }
+}
 
 int decimal(const char* bin)
 {
