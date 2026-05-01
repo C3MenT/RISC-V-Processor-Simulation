@@ -26,16 +26,22 @@ int Fetch(FILE *file, IF_ID_buffer *if_id_buf, bool debug)
     int next_pc = pc + 4;
     // store the next pc value in the buffer 
     if_id_buf->pc = next_pc; 
-
+    /*
     // read until first whitespace, store in instruction field of IF/ID buffer
     for (int i = 0; i < line; i++)
     {
         // skip lines until we get to the line we want to read
-        fscanf(file, "%*[^\n]\n");
+        fscanf(file, "%*[^\n]\n"); // skip the line
+
     }
+    */
+    //char c = if_id_buf->instruction[0]; 
+    //printf("HERE\n");
     // read up to 32 chars or whitespace, store in instruction field of IF/ID buffer
-    return fscanf(file, "%32s", if_id_buf->instruction); 
+    int result = fscanf(file, "%32s", if_id_buf->instruction); // read the instruction into the buffer
+    
     // fscanf returns the number of items successfully read, 
     // so it will return 0 if we have reached the end of the input stream 
     // and there are no more instructions to read.
+    return result;
 }

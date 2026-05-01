@@ -7,7 +7,7 @@
 #include "../header/writeback.h"
 
 // Debug mode flag
-bool debug = true;
+bool debug = false;
 
 // Main Driver Function ====================================================================
 /*
@@ -47,18 +47,23 @@ int main(int argc, char* argv[])
     }
     */
     // For testing purposes, we will read from standard input instead of a file
-    printf("Enter the program file name to run: ");
-    char* input_file;
+    printf("Enter the program file name to run: \n");
+    char input_file[100];
     std::fscanf(stdin, "%s", input_file);
     FILE* file = fopen(input_file, "r");
 
+    if (file == nullptr)
+    {
+        std::cerr << "Error: Could not open file " << input_file << std::endl;
+        return 1;
+    }
+    printf("Running program from file: %s\n", input_file);
     // Declare the buffers //
     // input buffer for the decode stage
     IF_ID_buffer if_id_buffer; 
-    // initialize the pc value in the IF/ID buffer to 0
-    if_id_buffer.pc = 0;
+    if_id_buffer.pc = 0; // initialize the pc value in the IF/ID buffer to 0
     // initialize the instruction field in the IF/ID buffer to all 0s
-    std::fill(std::begin(if_id_buffer.instruction), std::end(if_id_buffer.instruction), 0); 
+    if_id_buffer.instruction[0] = '\0';
     
     // output buffer for the decode stage and input
     ID_EXE_buffer id_exe_buffer; 
@@ -71,16 +76,27 @@ int main(int argc, char* argv[])
     id_exe_buffer.rd = 0; // initialize rd value
 
     EXE_MEM_buffer exe_mem_buffer; // output buffer for the execute stage and input for the memory stage
+    exe_mem_buffer.pc = 0; // initialize pc value in EXE/MEM buffer to 0
+    exe_mem_buffer.alu_result = 0; // initialize alu result value
+    exe_mem_buffer.rs1_val = 0; // initialize rs1 value for store and load instructions
+    exe_mem_buffer.rs2_val = 0; // initialize rs2 value for store instructions
+    exe_mem_buffer.rd = 0; // initialize rd reg number
+
     MEM_WB_buffer mem_wb_buffer; // output buffer for the memory stage and input
+    mem_wb_buffer.mem_result = 0; // initialize memory result value
+    mem_wb_buffer.alu_result = 0; // initialize alu result value
+    mem_wb_buffer.rd = 0; // initialize rd reg name
 
     // Loose control signals to be set
     pc = 0; // Initialize the pc
     alu_zero = 0; // Initialize the alu_zero flag to 0
 
-    // Initialize the register file and control signals to 0
+    // Initialize the register file and
+    // Initialize the data memory to 0
     for (int i = 0; i < 32; i++)
     {
         rf[i] = 0;
+        d_mem[i] = 0;
     }
     /*for (int i = 0; i < 7; i++)
     {
@@ -96,19 +112,26 @@ int main(int argc, char* argv[])
     Jump = 0;
     ALUOp[0] = 0;
     ALUOp[1] = 0;
-    
-        // Initialize the data memory to 0
 
     int cycle = 0; // keep track of cycle number for debug output
 
+    // Test dependent initializations (Sample Part 1)
+    //rf[1] = 32; rf[2] = 5; rf[10] = 112; rf[11] = 4;
+    //d_mem[28] = 5; d_mem[29] = 16;
+    // Test dependent initializations (Sample Part 2)
+    rf[8] = 32; rf[10] = 5; rf[11] = 2; rf[12] = 10; rf[13] = 15;
+
+
     // Main simulation loop: Fetch, Decode, Execute, Memory, Write Back
+    
+    /*
     // We execute the stages in reverse order to simulate the pipelining, so we call write back first and fetch last.
     // This is literally the case as the stages are happening simultaneously, so later ones would finish earlier in the code.
     // This also incidentally prevents using buffer values intended for future cycles in the current cycle, which would be incorrect.
     do
     {   
         if (debug)
-        {std::cout << "Cycle " << cycle << std::endl;}
+        {std::cout << std::endl << "Cycle " << cycle << std::endl << std::endl;;}
 
         // Writeback Stage
         Writeback(&mem_wb_buffer, debug);
@@ -151,7 +174,34 @@ int main(int argc, char* argv[])
         }
         cycle++; // increment cycle number
     // Fetch the instruction
-    } while (Fetch(file, &if_id_buffer, debug) > 0); // while we are still reading instructions
+    } while ((Fetch(file, &if_id_buffer, debug) > 0) && (total_clock_cycles > cycle + 4)); // while we are still reading instructions and last is incomplete
+    */
 
+    while (Fetch(file, &if_id_buffer, debug) > 0)
+    {
+        cycle++;
+
+        printf("\ntotal_clock_cycles %d:\n", cycle);
+
+        Decode(rf, &if_id_buffer, &id_exe_buffer, debug);
+
+        Execute(&id_exe_buffer, &exe_mem_buffer, alu_ctrl, debug);
+
+        Mem(&exe_mem_buffer, &mem_wb_buffer, debug);
+        if (MemWrite)
+            printf("memory 0x%x is modified to 0x%x\n", exe_mem_buffer.alu_result, exe_mem_buffer.rs2_val);
+
+        Writeback(&mem_wb_buffer, debug);
+        if (!Branch)
+        {
+            if (MemRead)
+                printf("x%d is modified to 0x%x\n", mem_wb_buffer.rd, mem_wb_buffer.mem_result);
+            else if (RegWrite)
+                printf("x%d is modified to 0x%x\n", mem_wb_buffer.rd, mem_wb_buffer.alu_result);
+        }
+
+        printf("pc is modified to 0x%x\n", pc);
+    }
+    printf("\nprogram terminated:\ntotal execution time is %d cycles\n", total_clock_cycles);
     return 0;
 }

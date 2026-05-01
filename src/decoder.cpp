@@ -214,8 +214,8 @@ void ControlUnit(const char* type_name, const char* opcode, const char* funct3, 
         MemWrite = 1;
         //control_signals[4] = 0; // MemtoReg
         MemtoReg = 0;
-        //control_signals[5] = 1; // MemRead
-        MemRead = 1;
+        //control_signals[5] = 0; // MemRead
+        MemRead = 0;
         //control_signals[6] = 0; // ALUOp (0 for S-type)
         ALUOp[0] = 0; ALUOp[1] = 0;
         //control_signals[7] = 0; // Jump

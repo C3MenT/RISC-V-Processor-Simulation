@@ -81,9 +81,10 @@ typedef struct ID_EXE_buffer
 
 typedef struct EXE_MEM_buffer
 {
-    int pc; // correct pc value to use in the memory stage for branch instructions
-    int alu_result;
-    int rs2_val; // for store instructions
+    int pc; // correct pc value to use in the memory or writeback stage for branch instructions
+    int alu_result; // the ALU result or address offset from EXE stage
+    int rs1_val; // r1 value for store and load addresses
+    int rs2_val; // r2 value to store for store instructions
     int rd; // destination register number (0-31)
 } EXE_MEM_buffer;
 
@@ -91,6 +92,7 @@ typedef struct EXE_MEM_buffer
 
 typedef struct MEM_WB_buffer
 {
+    int pc;
     int mem_result; // for load instructions
     int alu_result; // for R-type and I-type instructions
     int rd; // destination register number (0-31)
