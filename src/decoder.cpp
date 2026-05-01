@@ -113,7 +113,7 @@ void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buf
         name = get_name(opcode, funct3, funct7);
 
         // Print Sequence (Now for debug purposes)
-        printf("\nDECODE STAGE ===============================\n");
+        printf("DECODE STAGE ===============================\n");
         printf("\nInstruction Type: %s\n", type_name);
         printf("Operation: %s\n", name);
         if (*rs1)
@@ -194,8 +194,8 @@ void ControlUnit(const char* type_name, const char* opcode, const char* funct3, 
             MemtoReg = 0;
             //control_signals[5] = 0; // MemRead
             MemRead = 0;
-            //control_signals[6] = 3; // ALUOp (3 for I-type)
-            ALUOp[0] = 1; ALUOp[1] = 1;
+            //control_signals[6] = 3; // ALUOp (3 for I-type ALU operations)
+            ALUOp[0] = 1; ALUOp[1] = 0;
         }
 
         //control_signals[7] = 0; // Jump
@@ -329,7 +329,7 @@ void ALUControl(int alu_op[2], int funct3, int funct7)
         // ALU performs subtraction to compare the two register values
         alu_ctrl[0] = 0; alu_ctrl[1] = 1; alu_ctrl[2] = 0; alu_ctrl[3] = 0; // SUB
     }
-    else if (alu_op[0] == 1 && alu_op[1] == 0) // R-type
+    else if (alu_op[0] == 1 && alu_op[1] == 0) // "R-type"
     {
         switch (funct3)
         {
