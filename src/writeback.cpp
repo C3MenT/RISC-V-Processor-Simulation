@@ -4,7 +4,7 @@
 void Writeback(MEM_WB_buffer *mem_wb_buffer, bool debug){
     if (debug)
     {
-        std::cout << "WRITEBACK STAGE ===============================\n";
+        std::cout << "\nWRITEBACK STAGE ===============================\n";
         if (RegWrite)
         {
             std::cout << "Writing back to register file: ";

@@ -12,7 +12,7 @@ void Mem(EXE_MEM_buffer *exe_mem_buffer, MEM_WB_buffer *mem_wb_buffer, bool debu
 
     if (debug)
     {
-        std::cout << "MEMORY STAGE ===============================\n";
+        std::cout << "\nMEMORY STAGE ===============================\n";
         if (MemRead)
         {
             std::cout << "Reading from memory address " << address << " to get value " << value << std::endl;
@@ -26,7 +26,6 @@ void Mem(EXE_MEM_buffer *exe_mem_buffer, MEM_WB_buffer *mem_wb_buffer, bool debu
         {
             std::cout << "No memory operation" << std::endl;
         }
-        std::cout << "============================================\n" << std::endl;
     }
 
     if(MemRead) //this means its load instruction
@@ -38,4 +37,10 @@ void Mem(EXE_MEM_buffer *exe_mem_buffer, MEM_WB_buffer *mem_wb_buffer, bool debu
         d_mem[index] = exe_mem_buffer->rs2_val; // rs2 would hold the value to store for store instructions, so we write that value to memory at the effective address
     }
     mem_wb_buffer->rd = exe_mem_buffer->rd;  //pass the destination register to the mem/wb buffer
+
+    if(debug)
+    {
+        mem_wb_buffer->print_buffer();
+        std::cout << "============================================\n" << std::endl;
+    }
 }

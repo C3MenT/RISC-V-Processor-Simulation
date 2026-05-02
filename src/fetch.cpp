@@ -5,9 +5,9 @@ int Fetch(FILE *file, IF_ID_buffer *if_id_buf, bool debug)
 {
     if (debug)
     {
-        printf("FETCH STAGE ===============================\n");
+        printf("\nFETCH STAGE ===============================\n");
         printf("Reading instruction at PC: %d\n", pc);
-        printf("============================================\n");
+        
     }
     
     /*
@@ -40,6 +40,12 @@ int Fetch(FILE *file, IF_ID_buffer *if_id_buf, bool debug)
     // read up to 32 chars or whitespace, store in instruction field of IF/ID buffer
     int result = fscanf(file, "%32s", if_id_buf->instruction); // read the instruction into the buffer
     
+    if (debug)
+    {
+        if_id_buf->print_buffer();
+        printf("============================================\n\n");
+    }
+
     // fscanf returns the number of items successfully read, 
     // so it will return 0 if we have reached the end of the input stream 
     // and there are no more instructions to read.

@@ -34,58 +34,50 @@ bool debug = false;
 */
 int main(int argc, char* argv[])
 {
-    
-    /*
     // Open the input file containing the machine code instructions
-    FILE* file = fopen(argv[1], "r");
+    FILE* file;
     
-    // Check if the file was opened successfully
+    printf("args: %d\n", argc);
+
+    // Check if main was given a file name as a command line argument 
     if (argv[1] == nullptr)
     {
-        std::cerr << "Usage: ./riscv_simulator <input_file>" << std::endl;
-        return 1;
+        char input_file_name[100]; // buffer size is arbitrary
+        // if not, prompt the user to enter one like instructions say
+        printf("Enter the program file name to run: \n");
+        std::fscanf(stdin, "%s", input_file_name);
+        file = fopen(input_file_name, "r");
+        if (file == nullptr)
+        {
+            std::cerr << "Error: Could not open file \"" << input_file_name << "\"" << std::endl;
+            return 1;
+        }
     }
-    */
-    // For testing purposes, we will read from standard input instead of a file
-    printf("Enter the program file name to run: \n");
-    char input_file[100];
-    std::fscanf(stdin, "%s", input_file);
-    FILE* file = fopen(input_file, "r");
-
-    if (file == nullptr)
+    else
     {
-        std::cerr << "Error: Could not open file " << input_file << std::endl;
-        return 1;
+        file = fopen(argv[1], "r");
+        if (file == nullptr)
+        {
+            std::cerr << "Error: Could not open file \"" << argv[1] << "\"" << std::endl;
+            return 1;
+        }
+        // Additionally allow debug toggling from command prompt
+        if (argv[2] != nullptr && argv[2][0] == '-' && argv[2][1] == 'd')
+        {
+            printf("Debug mode enabled\n");
+            debug = true;
+        }
     }
-    printf("Running program from file: %s\n", input_file);
+
     // Declare the buffers //
-    // input buffer for the decode stage
+    // output buffer for the fetch stage and input buffer for the decode stage
     IF_ID_buffer if_id_buffer; 
-    if_id_buffer.pc = 0; // initialize the pc value in the IF/ID buffer to 0
-    // initialize the instruction field in the IF/ID buffer to all 0s
-    if_id_buffer.instruction[0] = '\0';
-    
-    // output buffer for the decode stage and input
+    // output buffer for the decode stage and input for the execute stage
     ID_EXE_buffer id_exe_buffer; 
-    id_exe_buffer.pc = 0; // initialize pc value in ID/EXE buffer to 0
-    id_exe_buffer.read_data1 = 0; // initialize read data 1 value
-    id_exe_buffer.read_data2 = 0; // initialize read data 2 value
-    id_exe_buffer.immediate = 0; // initialize immediate value
-    id_exe_buffer.rs1 = 0; // initialize rs1 value
-    id_exe_buffer.rs2 = 0; // initialize rs2 value
-    id_exe_buffer.rd = 0; // initialize rd value
-
-    EXE_MEM_buffer exe_mem_buffer; // output buffer for the execute stage and input for the memory stage
-    exe_mem_buffer.pc = 0; // initialize pc value in EXE/MEM buffer to 0
-    exe_mem_buffer.alu_result = 0; // initialize alu result value
-    exe_mem_buffer.rs1_val = 0; // initialize rs1 value for store and load instructions
-    exe_mem_buffer.rs2_val = 0; // initialize rs2 value for store instructions
-    exe_mem_buffer.rd = 0; // initialize rd reg number
-
-    MEM_WB_buffer mem_wb_buffer; // output buffer for the memory stage and input
-    mem_wb_buffer.mem_result = 0; // initialize memory result value
-    mem_wb_buffer.alu_result = 0; // initialize alu result value
-    mem_wb_buffer.rd = 0; // initialize rd reg name
+    // output buffer for the execute stage and input for the memory stage
+    EXE_MEM_buffer exe_mem_buffer; 
+    // output buffer for the memory stage and input for the write back stage
+    MEM_WB_buffer mem_wb_buffer; 
 
     // Loose control signals to be set
     pc = 0; // Initialize the pc
@@ -98,29 +90,17 @@ int main(int argc, char* argv[])
         rf[i] = 0;
         d_mem[i] = 0;
     }
-    /*for (int i = 0; i < 7; i++)
-    {
-        control_signals[i] = 0;
-    }*/
-    // Initialize control signals to 0
-    RegWrite = 0;
-    Branch = 0;
-    ALUSrc = 0;
-    MemWrite = 0;
-    MemtoReg = 0;
-    MemRead = 0;
-    Jump = 0;
-    ALUOp[0] = 0;
-    ALUOp[1] = 0;
 
     int cycle = 0; // keep track of cycle number for debug output
 
-    // Test dependent initializations (Sample Part 1)
+    // Test dependent initializations
+
+    // (Sample Part 1)
     //rf[1] = 32; rf[2] = 5; rf[10] = 112; rf[11] = 4;
     //d_mem[28] = 5; d_mem[29] = 16;
-    // Test dependent initializations (Sample Part 2)
-    rf[8] = 32; rf[10] = 5; rf[11] = 2; rf[12] = 10; rf[13] = 15;
 
+    // (Sample Part 2)
+    //rf[8] = 32; rf[10] = 5; rf[11] = 2; rf[12] = 10; rf[13] = 15;
 
     // Main simulation loop: Fetch, Decode, Execute, Memory, Write Back
     
@@ -177,12 +157,13 @@ int main(int argc, char* argv[])
     } while ((Fetch(file, &if_id_buffer, debug) > 0) && (total_clock_cycles > cycle + 4)); // while we are still reading instructions and last is incomplete
     */
 
+    // Sequential Implementation
     while (Fetch(file, &if_id_buffer, debug) > 0)
     {
         cycle++;
 
         printf("\ntotal_clock_cycles %d:\n", cycle);
-
+    
         Decode(rf, &if_id_buffer, &id_exe_buffer, debug);
 
         Execute(&id_exe_buffer, &exe_mem_buffer, alu_ctrl, debug);

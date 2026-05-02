@@ -6,8 +6,8 @@ void Execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int a
 {
     if (debug)
     {
-        std::cout << "EXECUTE STAGE ===============================\n";
-        std::cout << "Executing ALU operation [" << alu_ctrl[0] << alu_ctrl[1] << alu_ctrl[2] << alu_ctrl[3] << "]: ";
+        std::cout << "\nEXECUTE STAGE ===============================\n";
+        std::cout << "Executing ALU operation [" << id_exe_buffer->ALU_CTRL[0] << id_exe_buffer->ALU_CTRL[1] << id_exe_buffer->ALU_CTRL[2] << id_exe_buffer->ALU_CTRL[3] << "]: ";
     }
 
     // Buffer data handovers
@@ -16,9 +16,16 @@ void Execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int a
     exe_mem_buffer->rs2_val = id_exe_buffer->read_data2; // pass along the value to store for store instructions
     exe_mem_buffer->alu_result = 0; // initialize the alu result value to 0, will be updated based on the ALU operation we perform
 
+    exe_mem_buffer->RegWrite = id_exe_buffer->RegWrite; // pass along the control signals to the exe/mem buffer for use in the memory stage and write back stage
+    exe_mem_buffer->MemWrite = id_exe_buffer->MemWrite;
+    exe_mem_buffer->MemtoReg = id_exe_buffer->MemtoReg;
+    exe_mem_buffer->MemRead = id_exe_buffer->MemRead;
+    exe_mem_buffer->Branch = id_exe_buffer->Branch;
+    exe_mem_buffer->Jump = id_exe_buffer->Jump;
+    
     // Check for each operation //
 
-    if (ALUSrc) // if ALUSrc is 1, then the second ALU operand should be the immediate value instead of the value read from the second register
+    if (id_exe_buffer->ALUSrc) // if ALUSrc is 1, then the second ALU operand should be the immediate value instead of the value read from the second register
     {
         id_exe_buffer->read_data2 = id_exe_buffer->immediate; // update the second ALU operand to be the immediate value
         if (debug)
@@ -27,7 +34,7 @@ void Execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int a
         }
     }
 
-    if (alu_ctrl[0] == 0 && alu_ctrl[1] == 0 && alu_ctrl[2] == 1 && alu_ctrl[3] == 0) // ADD (0010)
+    if (!id_exe_buffer->ALU_CTRL[0] && !id_exe_buffer->ALU_CTRL[1] && id_exe_buffer->ALU_CTRL[2] && !id_exe_buffer->ALU_CTRL[3]) // ADD (0010)
     {
         exe_mem_buffer->alu_result = id_exe_buffer->read_data1 + id_exe_buffer->read_data2;
         
@@ -37,7 +44,7 @@ void Execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int a
         }
     }
     
-    else if (alu_ctrl[0] == 0 && alu_ctrl[1] == 1 && alu_ctrl[2] == 0 && alu_ctrl[3] == 0) // SUB (0100)
+    else if (!id_exe_buffer->ALU_CTRL[0] && id_exe_buffer->ALU_CTRL[1] && !id_exe_buffer->ALU_CTRL[2] && !id_exe_buffer->ALU_CTRL[3]) // SUB (0100)
     {
         exe_mem_buffer->alu_result = id_exe_buffer->read_data1 - id_exe_buffer->read_data2;
         if (debug)
@@ -63,7 +70,7 @@ void Execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int a
         }
     }
     
-    else if (alu_ctrl[0] == 0 && alu_ctrl[1] == 0 && alu_ctrl[2] == 0 && alu_ctrl[3] == 0) // AND (0000)
+    else if (!id_exe_buffer->ALU_CTRL[0] && !id_exe_buffer->ALU_CTRL[1] && !id_exe_buffer->ALU_CTRL[2] && !id_exe_buffer->ALU_CTRL[3]) // AND (0000)
     {
         exe_mem_buffer->alu_result = id_exe_buffer->read_data1 & id_exe_buffer->read_data2;
         if (debug)
@@ -72,7 +79,7 @@ void Execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int a
         }
     }
     
-    else if (alu_ctrl[0] == 1 && alu_ctrl[1] == 0 && alu_ctrl[2] == 0 && alu_ctrl[3] == 0) // OR (1000)
+    else if (id_exe_buffer->ALU_CTRL[0] && !id_exe_buffer->ALU_CTRL[1] && !id_exe_buffer->ALU_CTRL[2] && !id_exe_buffer->ALU_CTRL[3]) // OR (1000)
     {
         exe_mem_buffer->alu_result = id_exe_buffer->read_data1 | id_exe_buffer->read_data2;
         if (debug)
@@ -81,7 +88,7 @@ void Execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int a
         }
     }
 
-    else if (alu_ctrl[0] == 1 && alu_ctrl[1] == 1 && alu_ctrl[2] == 0 && alu_ctrl[3] == 0) // XOR (1100)
+    else if (id_exe_buffer->ALU_CTRL[0] && id_exe_buffer->ALU_CTRL[1] && !id_exe_buffer->ALU_CTRL[2] && !id_exe_buffer->ALU_CTRL[3]) // XOR (1100)
     {
         exe_mem_buffer->alu_result = id_exe_buffer->read_data1 ^ id_exe_buffer->read_data2;
         if (debug)
@@ -89,8 +96,9 @@ void Execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int a
             std::cout << "XOR " << id_exe_buffer->read_data1 << " and " << id_exe_buffer->read_data2 << " to get " << exe_mem_buffer->alu_result << std::endl;
         }
     }
+   
     // Calculate the branch or Jump target address for branch instructions
-    if (Branch) // if this is a branch instruction, we need to calculate the branch target address for use in the fetch stage
+    if (id_exe_buffer->Branch) // if this is a branch instruction, we need to calculate the branch target address for use in the fetch stage
     {
         branch_target = id_exe_buffer->pc + id_exe_buffer->immediate; // the branch target address is the current pc value plus the sign-extended immediate value
         if (debug)
@@ -98,13 +106,14 @@ void Execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int a
             std::cout << "Calculating branch target address: " << id_exe_buffer->pc << " + " << id_exe_buffer->immediate << " = " << branch_target << std::endl;
         }
     }
-    if (Jump)
+    else if (id_exe_buffer->Jump)
     {
         branch_target = id_exe_buffer->immediate;
     }
     
     if (debug)
     {
+        exe_mem_buffer->print_buffer();
         std::cout << "============================================\n" << std::endl;
     }
 }

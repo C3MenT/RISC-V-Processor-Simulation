@@ -1,4 +1,5 @@
 #pragma once
+#include <iostream>
 /*
     This header contains all the shared objects templates and globals that are used
     my multiple different cpp files in the program.
@@ -59,6 +60,21 @@ typedef struct IF_ID_buffer
 {
     char instruction[33]; // 32-bit machine code instruction as a string of 1s and 0s (32 characters + null terminator)
     int pc; // potentially used pc + 4 value
+    
+    IF_ID_buffer() // constructor to initialize the buffer values to 0
+    {
+        for (int i = 0; i < 33; i++)
+        {
+            instruction[i] = '0'; // initialize instruction to all 0s
+        }
+        pc = 0; // initialize pc value in IF/ID buffer to 0
+    }
+    void print_buffer()
+    {
+        std::cout << "\nIF/ID Buffer Values:\n";
+        std::cout << "PC: " << pc << "\n";
+        std::cout << "Instruction: " << instruction << "\n";
+    }
 } IF_ID_buffer;
 
 //IF_ID_buffer if_id_buffer; // input buffer for the decode stage
@@ -75,6 +91,59 @@ typedef struct ID_EXE_buffer
     int rs1; // source register 1 number (0-31) (Possibly Unnecessary)
     int rs2; // source register 2 number (0-31) for R-type or 0 for I-type (Possibly Unnecessary)
     int rd; // destination register number (0-31)
+    // Control Signals =====================================================================
+    // ID/EXE has all but subsequent buffers will logically have less and less of these as they get used up
+    int RegWrite; // whether to write back to the register file
+    int Branch; // whether the instruction is a branch instruction, used to determine whether to update the program counter with the branch target address
+    int ALUSrc; // whether to use the immediate value instead of the second register value as the second ALU operand
+    int MemWrite; // whether to write to memory
+    int MemtoReg; // whether to write back the memory result instead of the ALU result to the register file
+    int MemRead; // whether to read from memory
+    int Jump; // whether the instruction is a jump instruction, used to determine whether to update the program counter with the jump target address
+    int ALU_CTRL[4]; // the actual ALU control signals to determine which ALU operation to perform in the execute stage
+
+    // Constructor to initialize all values to 0
+    ID_EXE_buffer()
+    {
+        pc = 0;
+        read_data1 = 0;
+        read_data2 = 0;
+        immediate = 0;
+        rs1 = 0;
+        rs2 = 0;
+        rd = 0;
+
+        RegWrite = 0;
+        Branch = 0;
+        ALUSrc = 0;
+        MemWrite = 0;
+        MemtoReg = 0;
+        MemRead = 0;
+        Jump = 0;
+        ALU_CTRL[0] = 0; ALU_CTRL[1] = 0; ALU_CTRL[2] = 0; ALU_CTRL[3] = 0;
+    }
+
+    void print_buffer()
+    {
+        std::cout << "\nID/EXE Buffer Values:\n";
+        std::cout << "PC: " << pc << "\n";
+        std::cout << "Read Data 1: " << read_data1 << " ";
+        std::cout << "Read Data 2: " << read_data2 << " ";
+        std::cout << "Immediate: " << immediate << "\n";
+        std::cout << "RS1: " << rs1 << " ";
+        std::cout << "RS2: " << rs2 << " ";
+        std::cout << "RD: " << rd << "\n";
+        std::cout << "Control Signals:\n";
+        std::cout << "RegWrite: " << RegWrite << " ";
+        std::cout << "Branch: " << Branch << " ";
+        std::cout << "ALUSrc: " << ALUSrc << " ";
+        std::cout << "MemWrite: " << MemWrite << " ";
+        std::cout << "MemtoReg: " << MemtoReg << " ";
+        std::cout << "MemRead: " << MemRead << " ";
+        std::cout << "Jump: " << Jump << "\n";
+        std::cout << "ALU Control Signals: [" << ALU_CTRL[0] << ALU_CTRL[1] << ALU_CTRL[2] << ALU_CTRL[3] << "]\n";
+    }
+
 } ID_EXE_buffer;
 
 //ID_EXE_buffer id_exe_buffer; // output buffer for the decode stage and input for the execute stage
@@ -86,6 +155,44 @@ typedef struct EXE_MEM_buffer
     int rs1_val; // r1 value for store and load addresses
     int rs2_val; // r2 value to store for store instructions
     int rd; // destination register number (0-31)
+    // Control signals for memory stage
+    int RegWrite; // whether to write back to the register file
+    int Branch; // whether the instruction is a branch instruction, used to determine whether to update
+    int Jump; // whether the instruction is a jump instruction, used to determine whether to update the program counter with the jump target address
+    int MemWrite; // whether to write to memory
+    int MemtoReg; // whether to write back the memory result instead of the ALU result to the register file
+    int MemRead; // whether to read from memory
+
+    EXE_MEM_buffer() // constructor to initialize all values to 0
+    {
+        pc = 0;
+        alu_result = 0;
+        rs1_val = 0;
+        rs2_val = 0;
+        rd = 0;
+        RegWrite = 0;
+        Branch = 0;
+        Jump = 0;
+        MemWrite = 0;
+        MemtoReg = 0;
+        MemRead = 0;
+    }
+    void print_buffer()
+    {
+        std::cout << "\nEXE/MEM Buffer Values:\n";
+        std::cout << "PC: " << pc << "\n";
+        std::cout << "ALU Result: " << alu_result << "\n";
+        std::cout << "RS1 Value: " << rs1_val << " ";
+        std::cout << "RS2 Value: " << rs2_val << " ";
+        std::cout << "RD: " << rd << "\n";
+        std::cout << "Control Signals:\n";
+        std::cout << "RegWrite: " << RegWrite << " ";
+        std::cout << "Branch: " << Branch << " ";
+        std::cout << "Jump: " << Jump << " ";
+        std::cout << "MemWrite: " << MemWrite << " ";
+        std::cout << "MemtoReg: " << MemtoReg << " ";
+        std::cout << "MemRead: " << MemRead << "\n";
+    }
 } EXE_MEM_buffer;
 
 //EXE_MEM_buffer exe_mem_buffer; // output buffer for the execute stage and input for the memory stage
@@ -96,6 +203,36 @@ typedef struct MEM_WB_buffer
     int mem_result; // for load instructions
     int alu_result; // for R-type and I-type instructions
     int rd; // destination register number (0-31)
+    // Control signals for write back stage
+    int RegWrite; // whether to write back to the register file
+    int MemtoReg; // whether to write back the memory result instead of the ALU result to the register file
+    int Branch; // whether the instruction is a branch instruction, used to determine whether to update the program counter with the branch target address
+    int Jump; // whether the instruction is a jump instruction, used to determine whether to update the program counter with the jump target address
+
+    MEM_WB_buffer() // constructor to initialize all values to 0
+    {
+        pc = 0;
+        mem_result = 0;
+        alu_result = 0;
+        rd = 0;
+        RegWrite = 0;
+        MemtoReg = 0;
+        Branch = 0;
+        Jump = 0;
+    }
+    void print_buffer()
+    {
+        std::cout << "\nMEM/WB Buffer Values:\n";
+        std::cout << "PC: " << pc << "\n";
+        std::cout << "Memory Result: " << mem_result << " ";
+        std::cout << "ALU Result: " << alu_result << " ";
+        std::cout << "RD: " << rd << "\n";
+        std::cout << "Control Signals:\n";
+        std::cout << "RegWrite: " << RegWrite << " ";
+        std::cout << "Branch: " << Branch << " ";
+        std::cout << "Jump: " << Jump << " ";
+        std::cout << "MemtoReg: " << MemtoReg << "\n";
+    }
 } MEM_WB_buffer;
 
 extern int d_mem[32];
