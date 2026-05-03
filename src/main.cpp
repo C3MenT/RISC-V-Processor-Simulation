@@ -34,6 +34,8 @@ bool debug = false;
 */
 int main(int argc, char* argv[])
 {
+    bool pipeline = false; // whether to run the simulation in pipelined mode or sequential mode, default is sequential
+
     // Open the input file containing the machine code instructions
     FILE* file;
     
@@ -92,6 +94,7 @@ int main(int argc, char* argv[])
     }
 
     int cycle = 0; // keep track of cycle number for debug output
+    total_clock_cycles = 0; // keep track of total clock cycles
 
     // Test dependent initializations
 
@@ -102,87 +105,97 @@ int main(int argc, char* argv[])
     // (Sample Part 2)
     //rf[8] = 32; rf[10] = 5; rf[11] = 2; rf[12] = 10; rf[13] = 15;
 
+
+
     // Main simulation loop: Fetch, Decode, Execute, Memory, Write Back
-    
-    /*
-    // We execute the stages in reverse order to simulate the pipelining, so we call write back first and fetch last.
-    // This is literally the case as the stages are happening simultaneously, so later ones would finish earlier in the code.
-    // This also incidentally prevents using buffer values intended for future cycles in the current cycle, which would be incorrect.
-    do
-    {   
-        if (debug)
-        {std::cout << std::endl << "Cycle " << cycle << std::endl << std::endl;;}
-
-        // Writeback Stage
-        Writeback(&mem_wb_buffer, debug);
-
-        // Memory Stage
-        Mem(&exe_mem_buffer, &mem_wb_buffer, debug);
-
-        // Execute Stage
-        Execute(&id_exe_buffer, &exe_mem_buffer, alu_ctrl, debug);
-
-        // Decode the fetched instruction
-        // `Decode` reads/writes global `control_signals`, so pass only debug flag
-        Decode(rf, &if_id_buffer, &id_exe_buffer, debug);
-
-        // End debug report for the cycle
-        if (debug)
-        {
-            std::cout << std::endl;
-            std::cout << "Register File: " << std::endl;
-            for (int i = 0; i < 32; i++)
-            {
-                std::cout << "x" << i << ": " << rf[i] << " ";
-                if (i % 8 == 7)
-                {std::cout << std::endl;}
-            }
-            std::cout << std::endl;
-
-            std::cout << "Control Signals: " << std::endl;
-            //std::cout << "RegWrite: " << control_signals[0] << " " << std::endl;
-            std::cout << "RegWrite: " << RegWrite << " " << std::endl;
-            std::cout << "Branch: " << Branch << " " << std::endl;
-            std::cout << "ALUSrc: " << ALUSrc << " " << std::endl;
-            std::cout << "MemWrite: " << MemWrite << " " << std::endl;
-            std::cout << "MemtoReg: " << MemtoReg << " " << std::endl;
-            std::cout << "MemRead: " << MemRead << " " << std::endl;
-            std::cout << "ALUOp: " << ALUOp[0] << ALUOp[1] << " " << std::endl;
-
-            std::cout << "ALU Zero Flag: " << alu_zero << " " << std::endl;
-            std::cout << "======================================================" << std::endl << std::endl;
-        }
-        cycle++; // increment cycle number
-    // Fetch the instruction
-    } while ((Fetch(file, &if_id_buffer, debug) > 0) && (total_clock_cycles > cycle + 4)); // while we are still reading instructions and last is incomplete
-    */
-
-    // Sequential Implementation
-    while (Fetch(file, &if_id_buffer, debug) > 0)
+    if (!pipeline)
     {
-        cycle++;
-
-        printf("\ntotal_clock_cycles %d:\n", cycle);
-    
-        Decode(rf, &if_id_buffer, &id_exe_buffer, debug);
-
-        Execute(&id_exe_buffer, &exe_mem_buffer, alu_ctrl, debug);
-
-        Mem(&exe_mem_buffer, &mem_wb_buffer, debug);
-        if (MemWrite)
-            printf("memory 0x%x is modified to 0x%x\n", exe_mem_buffer.alu_result, exe_mem_buffer.rs2_val);
-
-        Writeback(&mem_wb_buffer, debug);
-        if (!Branch)
+        // Sequential (Single-Cycle) Implementation
+        // Since buffers are updated and then immediately passed to next stage, this is single-cycle
+        // A pipelined implementation would require each stage to operate on their own instance of
+        // the buffers so that they can be updated simultaneously without interfering with each other.)
+        while (Fetch(file, &if_id_buffer, debug) > 0)
         {
-            if (MemRead)
-                printf("x%d is modified to 0x%x\n", mem_wb_buffer.rd, mem_wb_buffer.mem_result);
-            else if (RegWrite)
-                printf("x%d is modified to 0x%x\n", mem_wb_buffer.rd, mem_wb_buffer.alu_result);
+            cycle++;
+
+            printf("\ntotal_clock_cycles %d:\n", cycle);
+        
+            Decode(rf, &if_id_buffer, &id_exe_buffer, debug);
+
+            Execute(&id_exe_buffer, &exe_mem_buffer, alu_ctrl, debug);
+
+            Mem(&exe_mem_buffer, &mem_wb_buffer, debug);
+            if (exe_mem_buffer.MemWrite)
+                printf("memory 0x%x is modified to 0x%x\n", exe_mem_buffer.alu_result, exe_mem_buffer.rs2_val);
+
+            Writeback(&mem_wb_buffer, debug);
+            if (!exe_mem_buffer.Branch)
+            {
+                if (exe_mem_buffer.MemRead)
+                    printf("x%d is modified to 0x%x\n", mem_wb_buffer.rd, mem_wb_buffer.mem_result);
+                else if (exe_mem_buffer.RegWrite)
+                    printf("x%d is modified to 0x%x\n", mem_wb_buffer.rd, mem_wb_buffer.alu_result);
+            }
+
+            printf("pc is modified to 0x%x\n", pc);
+        }
+    }
+    else
+    {
+        // Pipelined Implementation
+        // We execute the stages in reverse order to simulate the pipelining, so we call write back first and fetch last.
+        // Conceptually this is the case as the stages are happening simultaneously so later ones would finish earlier in the code.
+        // This also incidentally prevents using buffer values intended for future cycles in the current cycle (loop iteration), which would be incorrect.
+        
+        // The main function still contains an objective instance of each buffer.
+        // Each stage will take in its input and output buffers like normal
+        // but, instead of passing the same buffer instance to the next stage,
+        // they wait until the next cycle for the stage to "get it themselves."
+        // This simulates the fact that in a pipelined implementation, each stage would have its own instance of the buffer registers that get updated
+        // simultaneously at the end of each cycle. 
+
+        // We also need to add a condition to the loop to ensure that we run enough cycles to complete the last few instructions that are 
+        // still in the pipeline after we finish fetching all instructions from the input file.
+        // Recall Cycles = Instructions + Pipeline Depth (5) - 1, so we need to run at least 4 additional cycles after the last instruction
+        // is fetched to allow it to fully propagate through the 5-stage pipeline and complete execution.
+        // Count the instructions in the input file for later use in pipelined implementation
+        int instruction_count = 0;
+        char c;
+        while ((c = fgetc(file)) != EOF)
+        {
+            if (c == '\n')
+            {
+                instruction_count++;
+            }
         }
 
-        printf("pc is modified to 0x%x\n", pc);
+        do
+        {   
+            printf("\ntotal_clock_cycles %d:\n", total_clock_cycles + 1);
+
+            Writeback(&mem_wb_buffer, debug);
+            if (!exe_mem_buffer.Branch)
+            {
+                if (exe_mem_buffer.MemRead)
+                    printf("x%d is modified to 0x%x\n", mem_wb_buffer.rd, mem_wb_buffer.mem_result);
+                else if (exe_mem_buffer.RegWrite)
+                    printf("x%d is modified to 0x%x\n", mem_wb_buffer.rd, mem_wb_buffer.alu_result);
+            }
+
+            Mem(&exe_mem_buffer, &mem_wb_buffer, debug);
+            if (exe_mem_buffer.MemWrite)
+                printf("memory 0x%x is modified to 0x%x\n", exe_mem_buffer.alu_result, exe_mem_buffer.rs2_val);
+
+            Execute(&id_exe_buffer, &exe_mem_buffer, alu_ctrl, debug);
+
+            Decode(rf, &if_id_buffer, &id_exe_buffer, debug);
+
+            printf("pc is modified to 0x%x\n", pc);
+
+        // Fetch the next instruction and process loop while we are still reading instructions or last is incomplete
+        } while ((Fetch(file, &if_id_buffer, debug) > 0) || (total_clock_cycles < instruction_count + 4));
     }
+
     printf("\nprogram terminated:\ntotal execution time is %d cycles\n", total_clock_cycles);
     return 0;
 }

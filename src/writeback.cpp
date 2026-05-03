@@ -32,7 +32,6 @@ void Writeback(MEM_WB_buffer *mem_wb_buffer, bool debug){
         rf[mem_wb_buffer->rd] = mem_wb_buffer->alu_result;
     }
 
-    total_clock_cycles+=1;
     if (Branch && alu_zero)
     {
         pc = branch_target; // update program counter to branch target address if we are taking the branch
@@ -55,4 +54,7 @@ void Writeback(MEM_WB_buffer *mem_wb_buffer, bool debug){
     {
         pc += 4; // increment program counter by 4 to point to the next instruction
     }
+
+    // Project instructions require total clock cycles be incremented in writeback
+    total_clock_cycles++;
 }
