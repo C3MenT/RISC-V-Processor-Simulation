@@ -9,6 +9,18 @@
 // Debug mode flag
 bool debug = false;
 
+// Index corresponds to reg index
+// string corresponds to reg name
+const char* reg_map[32] = {
+    "zero", "ra", "sp", "gp", "tp",
+    "t0", "t1", "t2", 
+    "s0", "s1",
+    "a1", "a0",
+    "a2", "a3", "a4", "a5", "a6", "a7",
+    "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10", "s11",
+    "t3", "t4", "t5", "t6"
+};
+
 // Main Driver Function ====================================================================
 /*
     Fetch - Must fetch sequential instructions from input file until end of input stream
@@ -35,11 +47,11 @@ bool debug = false;
 int main(int argc, char* argv[])
 {
     bool pipeline = false; // whether to run the simulation in pipelined mode or sequential mode, default is sequential
+    bool use_reg_names = false; // whether or not to use register names instead of indices.
 
-    // Open the input file containing the machine code instructions
+    // File object pointer to hold file
     FILE* file;
-    
-    printf("args: %d\n", argc);
+    const char* file_name;
 
     // Check if main was given a file name as a command line argument 
     if (argv[1] == nullptr)
@@ -48,15 +60,18 @@ int main(int argc, char* argv[])
         // if not, prompt the user to enter one like instructions say
         printf("Enter the program file name to run: \n");
         std::fscanf(stdin, "%s", input_file_name);
+        // Open the input file containing the machine code instructions
         file = fopen(input_file_name, "r");
         if (file == nullptr)
         {
             std::cerr << "Error: Could not open file \"" << input_file_name << "\"" << std::endl;
             return 1;
         }
+        file_name = input_file_name;
     }
     else
     {
+        // Open the input file containing the machine code instructions
         file = fopen(argv[1], "r");
         if (file == nullptr)
         {
@@ -69,6 +84,7 @@ int main(int argc, char* argv[])
             printf("Debug mode enabled\n");
             debug = true;
         }
+        file_name = argv[1];
     }
 
     // Declare the buffers //
@@ -103,18 +119,19 @@ int main(int argc, char* argv[])
     //d_mem[28] = 5; d_mem[29] = 16;
 
     // (Sample Part 2)
-    //rf[8] = 32; rf[10] = 5; rf[11] = 2; rf[12] = 10; rf[13] = 15;
+    rf[8] = 32; rf[10] = 5; rf[11] = 2; rf[12] = 10; rf[13] = 15;
 
 
 
-    // Main simulation loop: Fetch, Decode, Execute, Memory, Write Back
+    // Main simulation loops: Fetch, Decode, Execute, Memory, Write Back
+    // Sequential default, with option to run pipelined through flag
     if (!pipeline)
     {
         // Sequential (Single-Cycle) Implementation
         // Since buffers are updated and then immediately passed to next stage, this is single-cycle
         // A pipelined implementation would require each stage to operate on their own instance of
         // the buffers so that they can be updated simultaneously without interfering with each other.)
-        while (Fetch(file, &if_id_buffer, debug) > 0)
+        while (Fetch(file_name, &if_id_buffer, debug) > 0)
         {
             cycle++;
 
@@ -127,16 +144,19 @@ int main(int argc, char* argv[])
             Mem(&exe_mem_buffer, &mem_wb_buffer, debug);
             if (exe_mem_buffer.MemWrite)
                 printf("memory 0x%x is modified to 0x%x\n", exe_mem_buffer.alu_result, exe_mem_buffer.rs2_val);
-
+            
             Writeback(&mem_wb_buffer, debug);
-            if (!exe_mem_buffer.Branch)
+            if (!exe_mem_buffer.MemWrite)
             {
-                if (exe_mem_buffer.MemRead)
-                    printf("x%d is modified to 0x%x\n", mem_wb_buffer.rd, mem_wb_buffer.mem_result);
-                else if (exe_mem_buffer.RegWrite)
-                    printf("x%d is modified to 0x%x\n", mem_wb_buffer.rd, mem_wb_buffer.alu_result);
+                if (use_reg_names)
+                {
+                    printf("%s is modified to 0x%x\n", reg_map[mem_wb_buffer.rd], rf[mem_wb_buffer.rd]);
+                }
+                else
+                {
+                    printf("x%d is modified to 0x%x\n", mem_wb_buffer.rd, rf[mem_wb_buffer.rd]);
+                }
             }
-
             printf("pc is modified to 0x%x\n", pc);
         }
     }
@@ -158,28 +178,33 @@ int main(int argc, char* argv[])
         // still in the pipeline after we finish fetching all instructions from the input file.
         // Recall Cycles = Instructions + Pipeline Depth (5) - 1, so we need to run at least 4 additional cycles after the last instruction
         // is fetched to allow it to fully propagate through the 5-stage pipeline and complete execution.
+
         // Count the instructions in the input file for later use in pipelined implementation
         int instruction_count = 0;
-        char c;
-        while ((c = fgetc(file)) != EOF)
-        {
-            if (c == '\n')
-            {
-                instruction_count++;
-            }
-        }
+        char s[33];
+        while (fscanf(file, "%32s", s) > 0)
+        {instruction_count++;}
+        if (debug)
+            printf("%d Instructions\n", instruction_count);
+        // since writeback will assume next instr is pc+4 by default it always adds 4 by default
+        // we subtract 4 here to account for that
+        pc -= 4; 
 
         do
         {   
             printf("\ntotal_clock_cycles %d:\n", total_clock_cycles + 1);
 
             Writeback(&mem_wb_buffer, debug);
-            if (!exe_mem_buffer.Branch)
+            if (mem_wb_buffer.RegWrite && !mem_wb_buffer.MemtoReg)
             {
-                if (exe_mem_buffer.MemRead)
-                    printf("x%d is modified to 0x%x\n", mem_wb_buffer.rd, mem_wb_buffer.mem_result);
-                else if (exe_mem_buffer.RegWrite)
-                    printf("x%d is modified to 0x%x\n", mem_wb_buffer.rd, mem_wb_buffer.alu_result);
+                if (use_reg_names)
+                {
+                    printf("%s is modified to 0x%x\n", reg_map[mem_wb_buffer.rd], rf[mem_wb_buffer.rd]);
+                }
+                else
+                {
+                    printf("x%d is modified to 0x%x\n", mem_wb_buffer.rd, rf[mem_wb_buffer.rd]);
+                }
             }
 
             Mem(&exe_mem_buffer, &mem_wb_buffer, debug);
@@ -193,9 +218,8 @@ int main(int argc, char* argv[])
             printf("pc is modified to 0x%x\n", pc);
 
         // Fetch the next instruction and process loop while we are still reading instructions or last is incomplete
-        } while ((Fetch(file, &if_id_buffer, debug) > 0) || (total_clock_cycles < instruction_count + 4));
+        } while ((Fetch(file_name, &if_id_buffer, debug) > 0) || (total_clock_cycles < instruction_count + 4));
+        printf("\nprogram terminated:\ntotal execution time is %d cycles\n", total_clock_cycles);
     }
-
-    printf("\nprogram terminated:\ntotal execution time is %d cycles\n", total_clock_cycles);
     return 0;
 }

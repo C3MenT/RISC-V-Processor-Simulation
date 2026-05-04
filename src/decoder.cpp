@@ -131,6 +131,7 @@ void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buf
     }
 
     // We need to populate the out buffer (ID/EXE) to fulfill the decode stage
+    // Pass along next pc value
     id_exe_buffer->pc = if_id_buffer->pc;
     if (*rs1)
     {id_exe_buffer->rs1 = decimal(rs1); id_exe_buffer->read_data1 = reg_file[decimal(rs1)];} 
@@ -173,7 +174,7 @@ void ControlUnit(ID_EXE_buffer* id_exe_buffer, const char* type_name, const char
     // It is an integer value representing the actual 2-bit ALU Op control signal,
     // where 0 is Load/Store, 1 is Branch, 2 is R-type, and 3 is I-type.
     
-    // Regardless all will begin flipped off and we will turn on the ones we need for each instruction type
+    // Regardless, all will begin flipped off and we will turn on the ones we need for each instruction type
     RegWrite = 0;
     id_exe_buffer->RegWrite = 0;
     Branch = 0;
@@ -188,10 +189,15 @@ void ControlUnit(ID_EXE_buffer* id_exe_buffer, const char* type_name, const char
     id_exe_buffer->MemRead = 0;
     Jump = 0;
     id_exe_buffer->Jump = 0;
+    
+    id_exe_buffer->PCSrc = 0;
+    // We reset pc_target here because of jals (see UJ clause)
+    id_exe_buffer->pc_target = 0;
 
     // we make an ALUOp "signal" (var) to pass to the ALU Control "Unit" (function)
     int ALUOp[2] = {0, 0};
 
+    // There are special I types that need extra control signal checks to support
     if (type_name == "I")
     {
         // Set control signals for I-type instructions
@@ -202,14 +208,34 @@ void ControlUnit(ID_EXE_buffer* id_exe_buffer, const char* type_name, const char
         
         if (decimal(opcode) == 3) // if we are doing a load instruction
         {
+            // Loads additionally need MemtoReg set and MemRead set
             MemtoReg = 1;
             id_exe_buffer->MemtoReg = 1;
             MemRead = 1;
             id_exe_buffer->MemRead = 1;
+            // Loads always need an ADD operation so ALUOp becomes 00
+            // ALUOp is already 00
+        }
+        else if (decimal(opcode) == 103) // If this happens to be JALR
+        {
+            // Jalr is a little weird but understandable
+            // Jalr writes current pc to rd like Jal and it needs an ADD operation
+            // to add the immediate to whatever is in rs1 rather than pc (logically an address)
+            // It then should set the branch target to this result
+            Jump = 1;
+            id_exe_buffer->Jump = 1;
+            // 3 - Jalr
+            id_exe_buffer->PCSrc = 3; 
+
+            // ALUOp is (10) for JALR since it has a funct3
+            // since the ALU control ADDs (offset from addr) it needs an add operation
+            // instead of determining it now we use the funct3 being 000 to let ALU Control
+            // determine it after this
+            ALUOp[0] = 1; ALUOp[1] = 0; 
         }
         else
         {
-            ALUOp[0] = 1; ALUOp[1] = 0; // ALUOp is 3 for I-type instructions since the ALU control signals are determined by the funct3 field of the instruction
+            ALUOp[0] = 1; ALUOp[1] = 0; // ALUOp is 2 for ALU I-type instructions since the ALU control signals are determined by the funct3 field of the instruction
         }
     }
     else if (type_name == "S")
@@ -234,9 +260,21 @@ void ControlUnit(ID_EXE_buffer* id_exe_buffer, const char* type_name, const char
         // Set control signals for SB-type instructions
         Branch = 1;
         id_exe_buffer->Branch = 1;
+
+        // 1 - Branch (PC + imm)
+        id_exe_buffer->PCSrc = 1;
+        // Branch predictors would use their own adder to get the offset like in Jal so we simulate that here
+        id_exe_buffer->pc_target = id_exe_buffer->pc - 4 + id_exe_buffer->immediate;
+
         // ALUOp is 1 for branch instructions since the ALU just needs to perform a subtraction to compare the two register values
-        ALUOp[0] = 0; ALUOp[1] = 1;
+        ALUOp[0] = 0; ALUOp[1] = 1;  
     }
+    // U Types are strange
+    // There are only lui "load upper immediate" and auipc "add upper imm to pc"
+    // Upper immediate instructions are just longer immediate instructions that 
+    // do not have a funct3 field either.
+    // We will support load and add to pc with an add ALU control as if it is a mem op
+    // auipc will need extra support which will be left as TODO if ever we feel like adding it
     else if (type_name == "U")
     {
         // Set control signals for U-type instructions
@@ -244,20 +282,34 @@ void ControlUnit(ID_EXE_buffer* id_exe_buffer, const char* type_name, const char
         id_exe_buffer->RegWrite = 1;
         ALUSrc = 1;
         id_exe_buffer->ALUSrc = 1;
-        // ALUOp (3 for U-type) [NEED TO CHECK THIS]
-        ALUOp[0] = 1; ALUOp[1] = 1;
+        // ALUOp (0 for U-type) 
+        // ALUOp is already 00
     }
+    // Jal is the only UJ type
+    // Jal is special in that it does not use the ALU; it has a dedicated adder.
+    // Jal like jalr stores current pc in the rd reg but
+    // it calculates an offset from current pc, setting pc to the result.
     else if (type_name == "UJ")
     {
-        // Set control signals for UJ-type instructions
+        // Set control signals for UJ-type instruction
+        // to store PC in write back
         RegWrite = 1;
         id_exe_buffer->RegWrite = 1;
-        ALUSrc = 1;
-        id_exe_buffer->ALUSrc = 1;
+        // ALU isn't used
+        // ALUSrc = X (Don't care)
+        // assert jump
         Jump = 1;
         id_exe_buffer->Jump = 1;
-        // ALUOp (3 for UJ-type) [NEED TO CHECK THIS]
-        ALUOp[0] = 1; ALUOp[1] = 1;
+
+        id_exe_buffer->PCSrc = 2; // 2 for jal
+        // In leu of a personal adder unit we just calculate the target here.
+        // It will propagate along until the wb or mem stage.
+        // We add to next pc in the id_exe_buffer since we just got it from the if_id_buffer
+        // and therefore, it is the correct PC + 4 value for this stage. We subtract 4 to get
+        // the pc corresponding to this instruction.
+        id_exe_buffer->pc_target = id_exe_buffer->pc - 4 + id_exe_buffer->immediate;
+        
+        // ALUOp does not matter ALU isn't used
     }
     // set the actual ALU control signals based on the ALUOp and funct3/funct7 values
     ALUControl(id_exe_buffer, ALUOp, decimal(funct3), decimal(funct7));

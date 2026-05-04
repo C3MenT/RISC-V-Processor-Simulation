@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include "../header/fetch.h"
 
-int Fetch(FILE *file, IF_ID_buffer *if_id_buf, bool debug)
+//int Fetch(FILE *file, IF_ID_buffer *if_id_buf, bool debug)
+int Fetch(const char* file_name, IF_ID_buffer *if_id_buf, bool debug)
 {
     if (debug)
     {
@@ -9,7 +10,9 @@ int Fetch(FILE *file, IF_ID_buffer *if_id_buf, bool debug)
         printf("Reading instruction at PC: %d\n", pc);
         
     }
-    
+    // We open file per fetch so that the buffer refills
+    FILE* file = fopen(file_name, "r");
+
     /*
         Fetch reads an input file of machine instruction lines.
         Each line is a 32-bit instruction represented as a string of 1s and 0s.
@@ -20,23 +23,22 @@ int Fetch(FILE *file, IF_ID_buffer *if_id_buf, bool debug)
         For example, if pc is 0, we read in the 0th instruction, 
         if pc is 4, we read in the 1st instruction, etc.
     */
+
     // get line number to read based on current pc value
     int line = pc / 4; 
     // calculate next pc value for the next instruction to read in the next cycle
     int next_pc = pc + 4;
     // store the next pc value in the buffer 
     if_id_buf->pc = next_pc; 
-    /*
+    
     // read until first whitespace, store in instruction field of IF/ID buffer
     for (int i = 0; i < line; i++)
     {
         // skip lines until we get to the line we want to read
-        fscanf(file, "%*[^\n]\n"); // skip the line
+        fscanf(file, "%*[^\n]\n");
 
     }
-    */
-    //char c = if_id_buf->instruction[0]; 
-    //printf("HERE\n");
+    
     // read up to 32 chars or whitespace, store in instruction field of IF/ID buffer
     int result = fscanf(file, "%32s", if_id_buf->instruction); // read the instruction into the buffer
     

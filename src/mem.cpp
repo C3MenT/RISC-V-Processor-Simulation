@@ -5,8 +5,16 @@
 void Mem(EXE_MEM_buffer *exe_mem_buffer, MEM_WB_buffer *mem_wb_buffer, bool debug){
     mem_wb_buffer->alu_result = exe_mem_buffer->alu_result; // pass the effective address to the mem/wb buffer for use in the write back stage for store instructions
     mem_wb_buffer->pc = exe_mem_buffer->pc; // pass the pc value to the mem/wb buffer for use in the write back stage for branch instructions
+    mem_wb_buffer->pc_target = exe_mem_buffer->pc_target;
 
-    int address = exe_mem_buffer->alu_result; 
+    mem_wb_buffer->RegWrite = exe_mem_buffer->RegWrite;
+    mem_wb_buffer->MemtoReg = exe_mem_buffer->MemtoReg;
+    mem_wb_buffer->Branch = exe_mem_buffer->Branch;
+    mem_wb_buffer->Jump = exe_mem_buffer->Jump;
+    mem_wb_buffer->ALU_Zero = exe_mem_buffer->ALU_Zero;
+    mem_wb_buffer->PCSrc = exe_mem_buffer->PCSrc;
+
+    int address = exe_mem_buffer->alu_result; // if this is a mem instruction the alu_result is the address
     int index = (address)/4; // converted for int array
     int value = d_mem[index]; //dmem is declared with the global variables
 

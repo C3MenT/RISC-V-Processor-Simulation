@@ -15,6 +15,7 @@ void Execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int a
     exe_mem_buffer->rd = id_exe_buffer->rd; // pass along the destination register number for use in the memory stage and write back stage
     exe_mem_buffer->rs2_val = id_exe_buffer->read_data2; // pass along the value to store for store instructions
     exe_mem_buffer->alu_result = 0; // initialize the alu result value to 0, will be updated based on the ALU operation we perform
+    exe_mem_buffer->pc_target = id_exe_buffer->pc_target;
 
     exe_mem_buffer->RegWrite = id_exe_buffer->RegWrite; // pass along the control signals to the exe/mem buffer for use in the memory stage and write back stage
     exe_mem_buffer->MemWrite = id_exe_buffer->MemWrite;
@@ -22,6 +23,8 @@ void Execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int a
     exe_mem_buffer->MemRead = id_exe_buffer->MemRead;
     exe_mem_buffer->Branch = id_exe_buffer->Branch;
     exe_mem_buffer->Jump = id_exe_buffer->Jump;
+    exe_mem_buffer->PCSrc = id_exe_buffer->PCSrc;
+    exe_mem_buffer->ALU_Zero = 0; // initialize ALU Zero as 0
     
     // Check for each operation //
 
@@ -55,6 +58,7 @@ void Execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int a
         if (exe_mem_buffer->alu_result == 0)
         {
             alu_zero = 1;
+            exe_mem_buffer->ALU_Zero = 1;
             if (debug)
             {
                 std::cout << "ALU result is zero, setting ALU zero flag to 1" << std::endl;
@@ -96,21 +100,6 @@ void Execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int a
             std::cout << "XOR " << id_exe_buffer->read_data1 << " and " << id_exe_buffer->read_data2 << " to get " << exe_mem_buffer->alu_result << std::endl;
         }
     }
-   
-    // Calculate the branch or Jump target address for branch instructions
-    if (id_exe_buffer->Branch) // if this is a branch instruction, we need to calculate the branch target address for use in the fetch stage
-    {
-        branch_target = id_exe_buffer->pc + id_exe_buffer->immediate; // the branch target address is the current pc value plus the sign-extended immediate value
-        if (debug)
-        {
-            std::cout << "Calculating branch target address: " << id_exe_buffer->pc << " + " << id_exe_buffer->immediate << " = " << branch_target << std::endl;
-        }
-    }
-    else if (id_exe_buffer->Jump)
-    {
-        branch_target = id_exe_buffer->immediate;
-    }
-    
     if (debug)
     {
         exe_mem_buffer->print_buffer();

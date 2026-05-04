@@ -3,58 +3,73 @@
 
 void Writeback(MEM_WB_buffer *mem_wb_buffer, bool debug){
     if (debug)
-    {
         std::cout << "\nWRITEBACK STAGE ===============================\n";
-        if (RegWrite)
-        {
+
+    // Writing Something
+    if (mem_wb_buffer->RegWrite)
+    {
+        if (debug)
             std::cout << "Writing back to register file: ";
-            if (MemtoReg)
+        // Jump Case
+        if (mem_wb_buffer->Jump)
+        {
+            if (mem_wb_buffer->PCSrc == 2) // JAL
             {
-                std::cout << "Memory result " << mem_wb_buffer->mem_result << " to x" << mem_wb_buffer->rd << std::endl;
+                pc = mem_wb_buffer->pc_target; // pc = pc + immediate (found by Decode "Adder")
             }
-            else
+            else // JALR
             {
-                std::cout << "ALU result " << mem_wb_buffer->alu_result << " to x" << mem_wb_buffer->rd << std::endl;
+                pc = mem_wb_buffer->alu_result; // pc = rs1 + immediate (found in ALU)
+            }
+            rf[mem_wb_buffer->rd] = mem_wb_buffer->pc; // write pc+4 value into rd
+            if (debug)
+            {
+                std::cout << "PC + 4 = " << mem_wb_buffer->pc << " to x" << mem_wb_buffer->rd << std::endl;
+                std::cout << "Jumping to " << pc << std::endl;
             }
         }
-        else
+        // Normal Write
+        else 
         {
+            // Load Case
+            if(mem_wb_buffer->MemtoReg)
+            {
+                if (debug)
+                    std::cout << "Memory result " << mem_wb_buffer->mem_result << " to x" << mem_wb_buffer->rd << std::endl;
+                rf[mem_wb_buffer->rd] = mem_wb_buffer->mem_result;
+            }
+            // ALU Operation Case
+            else 
+            {
+                if (debug)
+                    std::cout << "ALU result " << mem_wb_buffer->alu_result << " to x" << mem_wb_buffer->rd << std::endl;
+                rf[mem_wb_buffer->rd] = mem_wb_buffer->alu_result;
+            }
+            pc += 4; // increment program counter by 4 to point to the next instruction
+        }
+    }
+    // Not Writing Anything
+    else 
+    {
+        if(debug)
             std::cout << "No write back to register file" << std::endl;
-        }
-        std::cout << "============================================\n" << std::endl;
-    }
-
-    if(MemtoReg && RegWrite && mem_wb_buffer->rd!=0)
-    {
-        rf[mem_wb_buffer->rd] = mem_wb_buffer->mem_result;
-    }
-    else if (MemtoReg == 0 && RegWrite && mem_wb_buffer->rd!=0){
-        rf[mem_wb_buffer->rd] = mem_wb_buffer->alu_result;
-    }
-
-    if (Branch && alu_zero)
-    {
-        pc = branch_target; // update program counter to branch target address if we are taking the branch
-        if (debug)
-        {
-            std::cout << "Branch taken, updating program counter to branch target address " << branch_target << std::endl;
-        }
-    }
-    else if (Jump)
-    {
-        pc = branch_target;
-        rf[mem_wb_buffer->rd] = mem_wb_buffer->pc; // write the return address to the destination register for jump instructions
         
-        if (debug)
+        // Branch Case
+        if (mem_wb_buffer->Branch && mem_wb_buffer->ALU_Zero)
         {
-            std::cout << "Jumping to " << branch_target << std::endl; 
+            pc = mem_wb_buffer->pc_target; // pc = pc + immediate (found by Decode "Adder")
+            if (debug)
+                std::cout << "Branch taken, updating program counter to branch target address " << mem_wb_buffer->pc_target << std::endl;
+        }
+        else // We are somehow doing an instruction that does not branch anywhere or write anything... 
+        {
+            pc += 4; // increment program counter by 4 to point to the next instruction just in case
         }
     }
-    else
-    {
-        pc += 4; // increment program counter by 4 to point to the next instruction
-    }
 
-    // Project instructions require total clock cycles be incremented in writeback
-    total_clock_cycles++;
+    rf[0] = 0; // Hard Reset the Zero Register to 0
+    total_clock_cycles++; // Project instructions imply total clock cycles be updated in write back
+
+    if (debug)
+        std::cout << "============================================\n" << std::endl;
 }
