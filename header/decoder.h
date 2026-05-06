@@ -6,17 +6,17 @@
 
 /// @brief Main decoding function determines the instruction type of a passed in machine
 /// code instruction and relevant fields to print out.
-
+/// @param if_id_buffer the IF/ID buffer
+/// @param id_exe_buffer the ID/EXE buffer
 /// @param debug boolean flag to enable debug output
-void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buffer, bool debug = false);
+void Decode(IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buffer, bool debug = false);
 
 /// @brief Populates the control signals based on given instruction type. 
 /// This is used by the ALU Control to determine which ALU operation to perform in the execute stage.
-/// @param type_name Type name as a string (R, I, S, SB, U, UJ) recieved from get_type() function
 /// @param opcode the opcode of the instruction as a string (7-digit binary) recieved from get_opcode() function for special distinctions
 /// @param funct3 the funct3 field of the instruction as a string (3-digit binary)
 /// @param funct7 the funct7 field of the instruction as a string (7-digit binary)
-void ControlUnit(ID_EXE_buffer* id_exe_buffer, const char* type_name, const char* opcode, const char* funct3, const char* funct7);
+void ControlUnit(ID_EXE_buffer* id_exe_buffer, const char* type_name, const char* opcode, const char* funct3, const char* funct7, bool debug = false);
 
 /// @brief Populates the ALU control signals based on the ALUOp control signal and the funct3 and funct7 fields of the instruction
 /// @param alu_op the ALUOp control signal as an array of 2 integers representing a 2-bit binary value

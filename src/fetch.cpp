@@ -4,11 +4,18 @@
 //int Fetch(FILE *file, IF_ID_buffer *if_id_buf, bool debug)
 int Fetch(const char* file_name, IF_ID_buffer *if_id_buf, bool debug)
 {
+    
     if (debug)
     {
-        printf("\nFETCH STAGE ===============================\n");
+        if (pipeline)
+        {
+            static int inst_index = 0;
+            inst_index++;
+            printf("\nFETCH STAGE (%d) ===============================\n", inst_index);
+        }
+        else
+            printf("\nFETCH STAGE ===============================\n");
         printf("Reading instruction at PC: %d\n", pc);
-        
     }
     // We open file per fetch so that the buffer refills
     FILE* file = fopen(file_name, "r");
@@ -36,12 +43,20 @@ int Fetch(const char* file_name, IF_ID_buffer *if_id_buf, bool debug)
     {
         // skip lines until we get to the line we want to read
         fscanf(file, "%*[^\n]\n");
-
     }
     
     // read up to 32 chars or whitespace, store in instruction field of IF/ID buffer
     int result = fscanf(file, "%32s", if_id_buf->instruction); // read the instruction into the buffer
     
+    if (FLUSH == 1)
+    {
+        // no need to flush the instruction string as the decode stage has done so if necessary
+        // since this technically happens last in the iteration.
+        // Eg. fetch has not gotten an out of date instruction before any changes to PC
+        FLUSH--;
+    }
+
+
     if (debug)
     {
         if_id_buf->print_buffer();

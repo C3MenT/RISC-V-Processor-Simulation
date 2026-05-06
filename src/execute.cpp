@@ -4,10 +4,49 @@
 // Implementation for the execute stage
 void Execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int alu_ctrl[], bool debug)
 {
+    if (FLUSH == 3) // if we must flush up to EXE
+    {
+        id_exe_buffer->rd = 0;
+        id_exe_buffer->read_data1 = 0;
+        id_exe_buffer->read_data2 = 0;
+        id_exe_buffer->pc_target = 0;
+        id_exe_buffer->RegWrite = 0;
+        id_exe_buffer->MemWrite = 0;
+        id_exe_buffer->MemtoReg = 0;
+        id_exe_buffer->MemRead = 0;
+        id_exe_buffer->Branch = 0;
+        id_exe_buffer->Jump = 0;
+        id_exe_buffer->PCSrc = 0;
+        FLUSH--;
+    }
+
     if (debug)
     {
-        std::cout << "\nEXECUTE STAGE ===============================\n";
+        if (pipeline)
+        {
+            static int inst_index = -2;
+            inst_index++;
+            printf("\nEXECUTE STAGE (%d) ===============================\n", inst_index);
+        }
+        else
+            printf("\nEXECUTE STAGE ===============================\n");
         std::cout << "Executing ALU operation [" << id_exe_buffer->ALU_CTRL[0] << id_exe_buffer->ALU_CTRL[1] << id_exe_buffer->ALU_CTRL[2] << id_exe_buffer->ALU_CTRL[3] << "]: ";
+    }
+
+    if (pipeline)
+    {
+        // Hazard Detection Forwarding //
+        // // (Need last ALU instr's rd) ==============================================
+        // We must check if our rs1 or rs2 if existing are the rd of the previous instr
+        // If so we must forward whatever the previous result was 
+        if (id_exe_buffer->rs1 == exe_mem_buffer->rd)
+        {
+            id_exe_buffer->read_data1 = exe_mem_buffer->alu_result;
+        }
+        if (id_exe_buffer->rs2 == exe_mem_buffer->rd)
+        {
+            id_exe_buffer->read_data2 = exe_mem_buffer->alu_result;
+        }
     }
 
     // Buffer data handovers
@@ -25,7 +64,7 @@ void Execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int a
     exe_mem_buffer->Jump = id_exe_buffer->Jump;
     exe_mem_buffer->PCSrc = id_exe_buffer->PCSrc;
     exe_mem_buffer->ALU_Zero = 0; // initialize ALU Zero as 0
-    
+
     // Check for each operation //
 
     if (id_exe_buffer->ALUSrc) // if ALUSrc is 1, then the second ALU operand should be the immediate value instead of the value read from the second register
@@ -44,6 +83,20 @@ void Execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int a
         if (debug)
         {
             std::cout << "ADD " << id_exe_buffer->read_data1 << " and " << id_exe_buffer->read_data2 << " to get " << exe_mem_buffer->alu_result << std::endl;
+        }
+
+        if (pipeline) // in pipelined implementation we check for a jalr instr to forward target
+        {
+            if (debug)
+                printf("JUMP %d and PCSrc==3 %d = %d\n", id_exe_buffer->Jump, id_exe_buffer->PCSrc, id_exe_buffer->Jump && id_exe_buffer->PCSrc == 3);
+            if (id_exe_buffer->Jump && id_exe_buffer->PCSrc == 3) // if a Jalr
+            {
+                pc = exe_mem_buffer->alu_result; // pc = rs1 + immediate (found in ALU just now)
+                FLUSH = 2; // "flush" the next iteration's IF and flush the next ID stage as they will be outdated
+                if (debug)
+                    printf("Jumping to %d\n", pc);
+                //printf("pc is modified to 0x%x\n", pc);
+            }
         }
     }
     
@@ -67,9 +120,21 @@ void Execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int a
         else
         {
             alu_zero = 0;
+            //exe_mem_buffer->ALU_Zero = 0; // initialized as 0
             if (debug)
             {
                 std::cout << "ALU result is not zero, setting ALU zero flag to 0" << std::endl;
+            }
+        }
+        if (pipeline) // We check whether to forward the branch outcome if we have a pipeline
+        {
+            if (id_exe_buffer->Branch && exe_mem_buffer->ALU_Zero)
+            {
+                pc = id_exe_buffer->pc_target; // pc = pc + immediate (found by Decode "Adder")
+                FLUSH = 2; // set to flush previous two stages
+                if (debug)
+                    std::cout << "Forwarded Branch taken, updating program counter to branch target address " << id_exe_buffer->pc_target << std::endl;
+                //printf("pc is modified to 0x%x\n", pc);
             }
         }
     }

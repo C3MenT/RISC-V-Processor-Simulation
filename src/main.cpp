@@ -15,7 +15,7 @@ const char* reg_map[32] = {
     "zero", "ra", "sp", "gp", "tp",
     "t0", "t1", "t2", 
     "s0", "s1",
-    "a1", "a0",
+    "a0", "a1",
     "a2", "a3", "a4", "a5", "a6", "a7",
     "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10", "s11",
     "t3", "t4", "t5", "t6"
@@ -46,9 +46,6 @@ const char* reg_map[32] = {
 */
 int main(int argc, char* argv[])
 {
-    bool pipeline = false; // whether to run the simulation in pipelined mode or sequential mode, default is sequential
-    bool use_reg_names = false; // whether or not to use register names instead of indices.
-
     // File object pointer to hold file
     FILE* file;
     const char* file_name;
@@ -99,7 +96,7 @@ int main(int argc, char* argv[])
 
     // Loose control signals to be set
     pc = 0; // Initialize the pc
-    alu_zero = 0; // Initialize the alu_zero flag to 0
+    alu_zero = 0; // Initialize the alu_zero flag to 0 (left over from using globals)
 
     // Initialize the register file and
     // Initialize the data memory to 0
@@ -137,7 +134,7 @@ int main(int argc, char* argv[])
 
             printf("\ntotal_clock_cycles %d:\n", cycle);
         
-            Decode(rf, &if_id_buffer, &id_exe_buffer, debug);
+            Decode(&if_id_buffer, &id_exe_buffer, debug);
 
             Execute(&id_exe_buffer, &exe_mem_buffer, alu_ctrl, debug);
 
@@ -190,9 +187,12 @@ int main(int argc, char* argv[])
         // we subtract 4 here to account for that
         pc -= 4; 
 
+        total_clock_cycles--;
         do
         {   
-            printf("\ntotal_clock_cycles %d:\n", total_clock_cycles + 1);
+            total_clock_cycles++;
+            if (total_clock_cycles > -1)
+                printf("\ntotal_clock_cycles %d:\n", total_clock_cycles + 1);
 
             Writeback(&mem_wb_buffer, debug);
             if (mem_wb_buffer.RegWrite && !mem_wb_buffer.MemtoReg)
@@ -208,17 +208,20 @@ int main(int argc, char* argv[])
             }
 
             Mem(&exe_mem_buffer, &mem_wb_buffer, debug);
+            total_clock_cycles++;
             if (exe_mem_buffer.MemWrite)
                 printf("memory 0x%x is modified to 0x%x\n", exe_mem_buffer.alu_result, exe_mem_buffer.rs2_val);
-
+            
             Execute(&id_exe_buffer, &exe_mem_buffer, alu_ctrl, debug);
+            total_clock_cycles++;
 
-            Decode(rf, &if_id_buffer, &id_exe_buffer, debug);
+            Decode(&if_id_buffer, &id_exe_buffer, debug);
+            total_clock_cycles++;
 
             printf("pc is modified to 0x%x\n", pc);
 
         // Fetch the next instruction and process loop while we are still reading instructions or last is incomplete
-        } while ((Fetch(file_name, &if_id_buffer, debug) > 0) || (total_clock_cycles < instruction_count + 4));
+        } while ((Fetch(file_name, &if_id_buffer, debug) > 0) || (pc < instruction_count * 4 + 4));
         printf("\nprogram terminated:\ntotal execution time is %d cycles\n", total_clock_cycles);
     }
     return 0;

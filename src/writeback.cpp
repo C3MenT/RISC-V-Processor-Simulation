@@ -3,8 +3,16 @@
 
 void Writeback(MEM_WB_buffer *mem_wb_buffer, bool debug){
     if (debug)
-        std::cout << "\nWRITEBACK STAGE ===============================\n";
-
+    {
+        if (pipeline)
+        {
+            static int inst_index = -4;
+            inst_index++;
+            printf("\nWRITEBACK STAGE (%d) ===============================\n", inst_index);
+        }
+        else
+            printf("\nWRITEBACK STAGE ===============================\n");
+    }
     // Writing Something
     if (mem_wb_buffer->RegWrite)
     {
@@ -13,19 +21,23 @@ void Writeback(MEM_WB_buffer *mem_wb_buffer, bool debug){
         // Jump Case
         if (mem_wb_buffer->Jump)
         {
-            if (mem_wb_buffer->PCSrc == 2) // JAL
+            if (!pipeline)
             {
-                pc = mem_wb_buffer->pc_target; // pc = pc + immediate (found by Decode "Adder")
-            }
-            else // JALR
-            {
-                pc = mem_wb_buffer->alu_result; // pc = rs1 + immediate (found in ALU)
+                if (mem_wb_buffer->PCSrc == 2) // JAL
+                {
+                    pc = mem_wb_buffer->pc_target; // pc = pc + immediate (found by Decode "Adder")
+                }
+                else // JALR
+                {
+                    pc = mem_wb_buffer->alu_result; // pc = rs1 + immediate (found in ALU)
+                }
+                if (debug)
+                    std::cout << "Jumping to " << pc << std::endl;
             }
             rf[mem_wb_buffer->rd] = mem_wb_buffer->pc; // write pc+4 value into rd
             if (debug)
             {
                 std::cout << "PC + 4 = " << mem_wb_buffer->pc << " to x" << mem_wb_buffer->rd << std::endl;
-                std::cout << "Jumping to " << pc << std::endl;
             }
         }
         // Normal Write
@@ -46,6 +58,8 @@ void Writeback(MEM_WB_buffer *mem_wb_buffer, bool debug){
                 rf[mem_wb_buffer->rd] = mem_wb_buffer->alu_result;
             }
             pc += 4; // increment program counter by 4 to point to the next instruction
+            if (debug)
+                std::cout << "PC incremented normally." << std::endl;
         }
     }
     // Not Writing Anything
@@ -55,15 +69,17 @@ void Writeback(MEM_WB_buffer *mem_wb_buffer, bool debug){
             std::cout << "No write back to register file" << std::endl;
         
         // Branch Case
-        if (mem_wb_buffer->Branch && mem_wb_buffer->ALU_Zero)
+        if (mem_wb_buffer->Branch && mem_wb_buffer->ALU_Zero && !pipeline)
         {
             pc = mem_wb_buffer->pc_target; // pc = pc + immediate (found by Decode "Adder")
             if (debug)
                 std::cout << "Branch taken, updating program counter to branch target address " << mem_wb_buffer->pc_target << std::endl;
         }
-        else // We are somehow doing an instruction that does not branch anywhere or write anything... 
+        else // We are doing an instruction that does not branch or jump anywhere or write anything...
         {
             pc += 4; // increment program counter by 4 to point to the next instruction just in case
+            if (debug)
+                std::cout << "PC incremented normally." << std::endl;
         }
     }
 

@@ -3,6 +3,9 @@
 */
 #include "../header/datapath.h"
 
+bool pipeline = true; // whether to run the simulation in pipelined mode or sequential mode, default is sequential
+bool use_reg_names = true; // whether or not to use register names instead of indices.
+
 int pc = 0; // initialize program counter to 0
 int rf[32] = {0}; // initialize register file to all 0s
 
@@ -22,3 +25,5 @@ int alu_zero = 0; // initialize ALU zero flag to 0
 int d_mem[32]= {0}; //initialize data memory to all 0s
 int total_clock_cycles = 0; //initialize total clock cycles to 0
 int branch_target = 0; // initialize branch target to 0
+
+int FLUSH = 0;

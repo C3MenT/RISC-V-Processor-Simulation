@@ -5,6 +5,12 @@
     my multiple different cpp files in the program.
 */
 
+
+// Run Flags ==================================================================
+extern bool pipeline; // whether to run the simulation in pipelined mode or sequential mode, default is sequential
+extern bool use_reg_names; // whether or not to use register names instead of indices.
+// ============================================================================
+
 // Program Counter, global variable to keep track of instruction address. 
 // Incremented by 4 after each instruction as instructions are 4 bytes long. 
 // Initialized to 0 as the first instruction is at address 0.
@@ -51,9 +57,18 @@ extern int alu_ctrl[4]; // For exe stage
 // Guidelines say this must be a global var named "alu-zero" but we can't use a hyphen
 extern int alu_zero;
 
+// Control that determines whether next PC comes from PC+4, jal target, jalr target, or branch target 
+// This is set through multiple muxes physically, but here we will use enumeration
+// [0 = PC+4, 1 = Branch (PC + imm {if condition}), 2 = Jal (pc + imm), 3 = Jalr (rs1 + imm)]
+extern int PCSrc; 
+
 // the target address to update the program counter to if we are taking a branch
 // Guidelines say this must be a global var initialized to 0, used by Fetch() and Execute() functions
 extern int branch_target; 
+
+// Emitable flush signal for hazard detection
+// Should be equal to the amount of stages that should be flushed (0, 1, or 2)
+extern int FLUSH;
 
 // // Buffers ====================================================================
 typedef struct IF_ID_buffer
@@ -105,7 +120,7 @@ typedef struct ID_EXE_buffer
     // Control that determines whether next PC comes from PC+4, jal target, jalr target, or branch target 
     // This is set through multiple muxes physically, but here we will use enumeration
     // [0 = PC+4, 1 = Branch (PC + imm {if condition}), 2 = Jal (pc + imm), 3 = Jalr (rs1 + imm)]
-    int PCSrc; 
+    int PCSrc;
     
     // Constructor to initialize all values to 0
     ID_EXE_buffer()

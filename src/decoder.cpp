@@ -2,10 +2,18 @@
 #include <string.h>
 #include "../header/decoder.h"
 
-void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buffer, bool debug)
+void Decode(IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buffer, bool debug)
 {
     // Extract the instruction from the IF/ID buffer
     const char* instruction = if_id_buffer->instruction;
+
+    if (FLUSH == 2) // if we must flush up to the ID
+    {
+        // clear the instruction since we got an incorrect one
+        instruction = "00000000000000000000000000000000\0";
+        FLUSH--;
+    }
+
 
     // First we get the opcode
     const char* opcode = get_opcode(instruction);
@@ -108,12 +116,20 @@ void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buf
         type_name = "NOT FOUND";
     }
 
-    if (debug){
+    if (debug)
+    {
+        if (pipeline)
+        {
+            static int inst_index = -1;
+            inst_index++;
+            printf("\nDECODE STAGE (%d) ===============================\n", inst_index);
+        }
+        else
+            printf("\nDECODE STAGE ===============================\n");
+
         // Get name of instruction
         name = get_name(opcode, funct3, funct7);
-
         // Print Sequence (Now for debug purposes)
-        printf("\nDECODE STAGE ===============================\n");
         printf("Instruction Type: %s\n", type_name);
         printf("Operation: %s\n", name);
         if (*rs1)
@@ -131,12 +147,12 @@ void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buf
     }
 
     // We need to populate the out buffer (ID/EXE) to fulfill the decode stage
-    // Pass along next pc value
+    // Pass along normal next pc value to potentially store for jump instructions
     id_exe_buffer->pc = if_id_buffer->pc;
     if (*rs1)
-    {id_exe_buffer->rs1 = decimal(rs1); id_exe_buffer->read_data1 = reg_file[decimal(rs1)];} 
+    {id_exe_buffer->rs1 = decimal(rs1); id_exe_buffer->read_data1 = rf[decimal(rs1)];} 
     if (*rs2)
-    {id_exe_buffer->rs2 = decimal(rs2); id_exe_buffer->read_data2 = reg_file[decimal(rs2)];}
+    {id_exe_buffer->rs2 = decimal(rs2); id_exe_buffer->read_data2 = rf[decimal(rs2)];}
     if (*rd)
     {id_exe_buffer->rd = decimal(rd);}
     if (*imm)
@@ -147,7 +163,7 @@ void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buf
     // One is literally storing the name:
     //id_exe_buffer->instruction = name;
 
-    ControlUnit(id_exe_buffer, type_name, opcode, funct3, funct7); // this will populate the control_signals global variable based on the instruction type
+    ControlUnit(id_exe_buffer, type_name, opcode, funct3, funct7, debug); // this will populate the control_signals global variable based on the instruction type
 
     // Garbage Collection (all dynamically allocated pointers)
     //delete[] rs1; delete[] rs2; delete[] rd; delete[] funct3; delete[] funct7;
@@ -161,7 +177,7 @@ void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buf
      }
 };
 
-void ControlUnit(ID_EXE_buffer* id_exe_buffer, const char* type_name, const char* opcode, const char* funct3, const char* funct7)
+void ControlUnit(ID_EXE_buffer* id_exe_buffer, const char* type_name, const char* opcode, const char* funct3, const char* funct7, bool debug)
 {
     // Actual datapaths use the ALUOp control signal so we can do that also based upon
     // the opcode, funct3, and funct7 values. 
@@ -190,7 +206,7 @@ void ControlUnit(ID_EXE_buffer* id_exe_buffer, const char* type_name, const char
     Jump = 0;
     id_exe_buffer->Jump = 0;
     
-    id_exe_buffer->PCSrc = 0;
+    //id_exe_buffer->PCSrc = 0;
     // We reset pc_target here because of jals (see UJ clause)
     id_exe_buffer->pc_target = 0;
 
@@ -307,7 +323,23 @@ void ControlUnit(ID_EXE_buffer* id_exe_buffer, const char* type_name, const char
         // We add to next pc in the id_exe_buffer since we just got it from the if_id_buffer
         // and therefore, it is the correct PC + 4 value for this stage. We subtract 4 to get
         // the pc corresponding to this instruction.
-        id_exe_buffer->pc_target = id_exe_buffer->pc - 4 + id_exe_buffer->immediate;
+        
+        if (pipeline)
+        {
+            // in the pipelined case, we must update pc immediately and compensate with stalls
+            // setting it here eschews any need to check PCSrc in Fetch which is what actually happens
+            pc = id_exe_buffer->pc - 4 + id_exe_buffer->immediate;
+            // We only "flush" the IF stage
+            // Since we jump early before decode is finished and the implementation executes
+            // stages backwards, there is no need to actually do anything since Fetch has not
+            // happened and goten yet anything in reality.
+            FLUSH = 1; 
+            // we also have to check for at least 3 stages (2 with forwarding if anything needs 'rd')
+            if (debug)
+                std::cout << "Jumping to " << pc << std::endl;
+        }
+        else
+            id_exe_buffer->pc_target = id_exe_buffer->pc - 4 + id_exe_buffer->immediate;
         
         // ALUOp does not matter ALU isn't used
     }
