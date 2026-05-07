@@ -109,18 +109,24 @@ int main(int argc, char* argv[])
     int cycle = 0; // keep track of cycle number for debug output
     total_clock_cycles = 0; // keep track of total clock cycles
 
-    // Test dependent initializations
-
+    // // Test dependent initializations // //
     // (Sample Part 1)
-    //rf[1] = 32; rf[2] = 5; rf[10] = 112; rf[11] = 4;
-    //d_mem[28] = 5; d_mem[29] = 16;
+    if (string_comp(file_name, "tests/sample_part1.txt"))
+    {
+        rf[1] = 32; rf[2] = 5; rf[10] = 112; rf[11] = 4;
+        d_mem[28] = 5; d_mem[29] = 16;
+    }
 
     // (Sample Part 2)
-    rf[8] = 32; rf[10] = 5; rf[11] = 2; rf[12] = 10; rf[13] = 15;
+    if (string_comp(file_name, "tests/sample_part2.txt"))
+    {rf[8] = 32; rf[10] = 5; rf[11] = 2; rf[12] = 10; rf[13] = 15;}
 
     // (Pipelined Load Test)
     //rf[6] = 1; rf[8] = 32; d_mem[32] = 10;
 
+
+    
+    // ========== // MAIN DRIVER // ========== //
     // Main simulation loops: Fetch, Decode, Execute, Memory, Write Back
     // Sequential default, with option to run pipelined through flag
     if (!pipeline)
@@ -216,8 +222,6 @@ int main(int argc, char* argv[])
             
             if (STALL < 2)
             Decode(&if_id_buffer, &id_exe_buffer, debug);
-            
-            //printf("pc is modified to 0x%x\n", pc);
 
         // Fetch the next instruction and process loop while we are still reading instructions or last is incomplete
         } while ((Fetch(file_name, &if_id_buffer, debug) > 0) || (total_clock_cycles < instruction_count + 4));

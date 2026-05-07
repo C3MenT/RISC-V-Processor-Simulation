@@ -3,7 +3,7 @@
 */
 #include "../header/datapath.h"
 
-bool pipeline = true; // whether to run the simulation in pipelined mode or sequential mode, default is sequential
+bool pipeline = false; // whether to run the simulation in pipelined mode or sequential mode, default is sequential
 bool use_reg_names = true; // whether or not to use register names instead of indices.
 
 int pc = 0; // initialize program counter to 0

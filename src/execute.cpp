@@ -2,15 +2,17 @@
 #include "../header/execute.h"
 
 // Implementation for the execute stage
-void Execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int alu_ctrl[], bool debug)
+void Execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int alu_ctrl[], bool debug,  MEM_WB_buffer *mem_wb_buffer)
 {
     if (STALL)
     {
-        // Check if we must stall still
-        STALL--; // remove 1 for MEM stage and then 1 for WB
-
         if (debug)
-            printf("STALLING...\n");
+            printf("STALLING for %d cycles...\n", STALL);
+        // Insert NOP (no operation)
+        exe_mem_buffer->nop();
+        // Update if we must stall still
+        // For simplicity EXE will be in charge of this
+        STALL--; // remove 1 for MEM stage (and then 1 for WB if needed)
         return;
     }
 
@@ -46,23 +48,60 @@ void Execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int a
     if (pipeline)
     {
         // Hazard Detection / Forwarding //
+
+        /*
+            -To detect hazards we check if our rs1 or rs2 value is equal to the rd of a
+            previous instruction.
+            -We also take advantage of the fact we silently recieve the mem_wb_buffer
+            to check 2 stages away.
+            -If it is an ALU instruction, we can simply forward values immediately from the
+            respective buffer.
+            -If it is a load, we must stall untill the value is available.
+                -Though we could forward the mem result from the mem_wb_buffer if needed
+        */
         
-        // // (Need last ALU instr's rd) ==============================================
+        // // (Need last instr's rd) ==============================================
+        
         // We must check if our rs1 or rs2 if existing are the rd of the previous instr
-        // If so we must forward whatever the previous result was 
-        if (id_exe_buffer->rs1 == exe_mem_buffer->rd && !exe_mem_buffer->MemtoReg)
+        // and that instr was not a load
+        if (id_exe_buffer->rs1 == exe_mem_buffer->rd)
         {
+            // If so we can forward whatever the previous result was before writeback
+            if (!exe_mem_buffer->MemtoReg)
             id_exe_buffer->read_data1 = exe_mem_buffer->alu_result;
+            // If not we must stall for 2 cycles
+            else
+            { STALL == 2; exe_mem_buffer->nop(); return; }
         }
         if (id_exe_buffer->rs2 == exe_mem_buffer->rd && !exe_mem_buffer->MemtoReg)
         {
+            if (!exe_mem_buffer->MemtoReg)
             id_exe_buffer->read_data2 = exe_mem_buffer->alu_result;
+            // If not we must stall for 2 cycles
+            else
+            { STALL == 2; exe_mem_buffer->nop(); return; }
         }
         
-        // // (An instr in mem or wb still and is a load)
-        if ((id_exe_buffer->rs1 == exe_mem_buffer->rd || id_exe_buffer->rs2 == exe_mem_buffer->rd) && exe_mem_buffer->MemtoReg)
+        // // (Need 2nd last instr's rd) ==============================================
+        if (mem_wb_buffer != nullptr) // logically same as (if pipeline)
         {
-            STALL = 2;
+            if (id_exe_buffer->rs1 == mem_wb_buffer->rd)
+            {
+                // If so we can forward whatever the previous result was before writeback
+                if (!mem_wb_buffer->MemtoReg)
+                id_exe_buffer->read_data1 = mem_wb_buffer->alu_result;
+                // If not we must stall for 1 cycle
+                else
+                { STALL == 1; exe_mem_buffer->nop(); return;}
+            }
+            if (id_exe_buffer->rs2 == mem_wb_buffer->rd)
+            {
+                if (!mem_wb_buffer->MemtoReg)
+                id_exe_buffer->read_data2 = mem_wb_buffer->alu_result;
+                // If not we must stall for 1 cycles
+                else
+                { STALL == 1; exe_mem_buffer->nop(); return;}
+            }
         }
     }
 

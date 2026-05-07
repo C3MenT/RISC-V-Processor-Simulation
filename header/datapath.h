@@ -224,6 +224,24 @@ typedef struct EXE_MEM_buffer
         PCSrc = 0;
         ALU_Zero = 0;
     }
+    void nop()
+    {
+        pc = 0;
+        alu_result = 0;
+        rs1_val = 0;
+        rs2_val = 0;
+        rd = 0;
+        pc_target = 0;
+
+        RegWrite = 0;
+        Branch = 0;
+        Jump = 0;
+        MemWrite = 0;
+        MemtoReg = 0;
+        MemRead = 0;
+        PCSrc = 0;
+        ALU_Zero = 0;
+    }
     void print_buffer()
     {
         std::cout << "\nEXE/MEM Buffer Values:\n";
