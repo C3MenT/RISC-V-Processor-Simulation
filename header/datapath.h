@@ -16,6 +16,9 @@ extern bool use_reg_names; // whether or not to use register names instead of in
 // Initialized to 0 as the first instruction is at address 0.
 extern int pc;
 
+// calculate default next pc value for the next instruction to read in the next cycle
+extern int next_pc;
+
 // Register file ==================================================================
 // 32 registers each 32 bits wide, initialized to 0
 // Note that register 0 is hardwired to 0 and cannot be modified, so it will always contain the value 0.
@@ -64,11 +67,21 @@ extern int PCSrc;
 
 // the target address to update the program counter to if we are taking a branch
 // Guidelines say this must be a global var initialized to 0, used by Fetch() and Execute() functions
-extern int branch_target; 
+extern int branch_target;
+
+// akin to branch target, but for jal instructions
+extern int jal_target;
+
+// akin to branch target, but for jalr instructions
+extern int jalr_target;
 
 // Emitable flush signal for hazard detection
 // Should be equal to the amount of stages that should be flushed (0, 1, or 2)
 extern int FLUSH;
+
+// we keep a stall flag that counts how many stages from the beginning to stall
+// 0 = none, 1 = IF, 2 = ID, 3 = EXE
+extern int STALL;
 
 // // Buffers ====================================================================
 typedef struct IF_ID_buffer
@@ -288,3 +301,4 @@ typedef struct MEM_WB_buffer
 extern int d_mem[32];
 
 extern int total_clock_cycles;
+

@@ -21,6 +21,7 @@ void Writeback(MEM_WB_buffer *mem_wb_buffer, bool debug){
         // Jump Case
         if (mem_wb_buffer->Jump)
         {
+            /*
             if (!pipeline)
             {
                 if (mem_wb_buffer->PCSrc == 2) // JAL
@@ -34,6 +35,7 @@ void Writeback(MEM_WB_buffer *mem_wb_buffer, bool debug){
                 if (debug)
                     std::cout << "Jumping to " << pc << std::endl;
             }
+            */
             rf[mem_wb_buffer->rd] = mem_wb_buffer->pc; // write pc+4 value into rd
             if (debug)
             {
@@ -57,9 +59,11 @@ void Writeback(MEM_WB_buffer *mem_wb_buffer, bool debug){
                     std::cout << "ALU result " << mem_wb_buffer->alu_result << " to x" << mem_wb_buffer->rd << std::endl;
                 rf[mem_wb_buffer->rd] = mem_wb_buffer->alu_result;
             }
+            /*
             pc += 4; // increment program counter by 4 to point to the next instruction
             if (debug)
                 std::cout << "PC incremented normally." << std::endl;
+            */
         }
     }
     // Not Writing Anything
@@ -67,7 +71,7 @@ void Writeback(MEM_WB_buffer *mem_wb_buffer, bool debug){
     {
         if(debug)
             std::cout << "No write back to register file" << std::endl;
-        
+        /*
         // Branch Case
         if (mem_wb_buffer->Branch && mem_wb_buffer->ALU_Zero && !pipeline)
         {
@@ -81,6 +85,7 @@ void Writeback(MEM_WB_buffer *mem_wb_buffer, bool debug){
             if (debug)
                 std::cout << "PC incremented normally." << std::endl;
         }
+        */
     }
 
     rf[0] = 0; // Hard Reset the Zero Register to 0

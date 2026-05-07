@@ -118,7 +118,8 @@ int main(int argc, char* argv[])
     // (Sample Part 2)
     rf[8] = 32; rf[10] = 5; rf[11] = 2; rf[12] = 10; rf[13] = 15;
 
-
+    // (Pipelined Load Test)
+    //rf[6] = 1; rf[8] = 32; d_mem[32] = 10;
 
     // Main simulation loops: Fetch, Decode, Execute, Memory, Write Back
     // Sequential default, with option to run pipelined through flag
@@ -154,7 +155,6 @@ int main(int argc, char* argv[])
                     printf("x%d is modified to 0x%x\n", mem_wb_buffer.rd, rf[mem_wb_buffer.rd]);
                 }
             }
-            printf("pc is modified to 0x%x\n", pc);
         }
     }
     else
@@ -186,11 +186,10 @@ int main(int argc, char* argv[])
         // since writeback will assume next instr is pc+4 by default it always adds 4 by default
         // we subtract 4 here to account for that
         pc -= 4; 
-
+        // subtract 1 from total cycles before the loop begins as each loop starts by incrementing
         total_clock_cycles--;
         do
         {   
-            total_clock_cycles++;
             if (total_clock_cycles > -1)
                 printf("\ntotal_clock_cycles %d:\n", total_clock_cycles + 1);
 
@@ -206,22 +205,22 @@ int main(int argc, char* argv[])
                     printf("x%d is modified to 0x%x\n", mem_wb_buffer.rd, rf[mem_wb_buffer.rd]);
                 }
             }
-
+        
             Mem(&exe_mem_buffer, &mem_wb_buffer, debug);
-            total_clock_cycles++;
+            
             if (exe_mem_buffer.MemWrite)
                 printf("memory 0x%x is modified to 0x%x\n", exe_mem_buffer.alu_result, exe_mem_buffer.rs2_val);
             
+            if (STALL < 3)
             Execute(&id_exe_buffer, &exe_mem_buffer, alu_ctrl, debug);
-            total_clock_cycles++;
-
+            
+            if (STALL < 2)
             Decode(&if_id_buffer, &id_exe_buffer, debug);
-            total_clock_cycles++;
-
-            printf("pc is modified to 0x%x\n", pc);
+            
+            //printf("pc is modified to 0x%x\n", pc);
 
         // Fetch the next instruction and process loop while we are still reading instructions or last is incomplete
-        } while ((Fetch(file_name, &if_id_buffer, debug) > 0) || (pc < instruction_count * 4 + 4));
+        } while ((Fetch(file_name, &if_id_buffer, debug) > 0) || (total_clock_cycles < instruction_count + 4));
         printf("\nprogram terminated:\ntotal execution time is %d cycles\n", total_clock_cycles);
     }
     return 0;

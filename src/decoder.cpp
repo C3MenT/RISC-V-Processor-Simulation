@@ -146,6 +146,13 @@ void Decode(IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buffer, bool debug
         {printf("Immediate: %d (or 0x%x)\n", decimal(imm), decimal(imm));};
     }
 
+    if (STALL)
+    {
+        if (debug)
+            printf("STALLING...\n");
+        return;
+    }
+
     // We need to populate the out buffer (ID/EXE) to fulfill the decode stage
     // Pass along normal next pc value to potentially store for jump instructions
     id_exe_buffer->pc = if_id_buffer->pc;
@@ -170,11 +177,11 @@ void Decode(IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buffer, bool debug
      //delete[] imm; 
      delete[] imm1; delete[] imm2; delete[] imm3; delete[] imm4; //delete[] opcode; delete[] type_name; delete[] funct3; delete[] funct7;
 
-     if(debug)
-     {
-        id_exe_buffer->print_buffer(); 
-        printf("============================================\n");
-     }
+    if(debug)
+    {
+    id_exe_buffer->print_buffer(); 
+    printf("============================================\n");
+    }
 };
 
 void ControlUnit(ID_EXE_buffer* id_exe_buffer, const char* type_name, const char* opcode, const char* funct3, const char* funct7, bool debug)
@@ -238,10 +245,11 @@ void ControlUnit(ID_EXE_buffer* id_exe_buffer, const char* type_name, const char
             // Jalr writes current pc to rd like Jal and it needs an ADD operation
             // to add the immediate to whatever is in rs1 rather than pc (logically an address)
             // It then should set the branch target to this result
-            Jump = 1;
+            //Jump = 1;
             id_exe_buffer->Jump = 1;
             // 3 - Jalr
-            id_exe_buffer->PCSrc = 3; 
+            //PCSrc = 3;
+            id_exe_buffer->PCSrc = 3;
 
             // ALUOp is (10) for JALR since it has a funct3
             // since the ALU control ADDs (offset from addr) it needs an add operation
@@ -274,13 +282,13 @@ void ControlUnit(ID_EXE_buffer* id_exe_buffer, const char* type_name, const char
     else if (type_name == "SB")
     {
         // Set control signals for SB-type instructions
-        Branch = 1;
+        //Branch = 1;
         id_exe_buffer->Branch = 1;
-
         // 1 - Branch (PC + imm)
         id_exe_buffer->PCSrc = 1;
         // Branch predictors would use their own adder to get the offset like in Jal so we simulate that here
         id_exe_buffer->pc_target = id_exe_buffer->pc - 4 + id_exe_buffer->immediate;
+        branch_target = pc + id_exe_buffer->immediate;
 
         // ALUOp is 1 for branch instructions since the ALU just needs to perform a subtraction to compare the two register values
         ALUOp[0] = 0; ALUOp[1] = 1;  
@@ -300,6 +308,13 @@ void ControlUnit(ID_EXE_buffer* id_exe_buffer, const char* type_name, const char
         id_exe_buffer->ALUSrc = 1;
         // ALUOp (0 for U-type) 
         // ALUOp is already 00
+        if (decimal(opcode) == 23) // if auipc "load address"
+        {
+            // rd = imm + pc
+            // to accomplish this with as little effort possible we add immediate to pc
+            // and store in immediate of buffer since rs1 should be zero in auipc
+            id_exe_buffer->immediate += pc;
+        }
     }
     // Jal is the only UJ type
     // Jal is special in that it does not use the ALU; it has a dedicated adder.
@@ -316,6 +331,9 @@ void ControlUnit(ID_EXE_buffer* id_exe_buffer, const char* type_name, const char
         // assert jump
         Jump = 1;
         id_exe_buffer->Jump = 1;
+        PCSrc = 2;
+        if (debug)
+            printf("Asserting Jump: %d and PCSrc: %d for jal\n", Jump, PCSrc);
 
         id_exe_buffer->PCSrc = 2; // 2 for jal
         // In leu of a personal adder unit we just calculate the target here.
@@ -323,20 +341,22 @@ void ControlUnit(ID_EXE_buffer* id_exe_buffer, const char* type_name, const char
         // We add to next pc in the id_exe_buffer since we just got it from the if_id_buffer
         // and therefore, it is the correct PC + 4 value for this stage. We subtract 4 to get
         // the pc corresponding to this instruction.
-        
+        jal_target = pc + id_exe_buffer->immediate;
+
         if (pipeline)
         {
             // in the pipelined case, we must update pc immediately and compensate with stalls
             // setting it here eschews any need to check PCSrc in Fetch which is what actually happens
-            pc = id_exe_buffer->pc - 4 + id_exe_buffer->immediate;
+            //pc = id_exe_buffer->pc - 4 + id_exe_buffer->immediate;
+            
             // We only "flush" the IF stage
             // Since we jump early before decode is finished and the implementation executes
             // stages backwards, there is no need to actually do anything since Fetch has not
             // happened and goten yet anything in reality.
             FLUSH = 1; 
             // we also have to check for at least 3 stages (2 with forwarding if anything needs 'rd')
-            if (debug)
-                std::cout << "Jumping to " << pc << std::endl;
+            //if (debug)
+                //std::cout << "Jumping to " << pc << std::endl;
         }
         else
             id_exe_buffer->pc_target = id_exe_buffer->pc - 4 + id_exe_buffer->immediate;
@@ -347,7 +367,7 @@ void ControlUnit(ID_EXE_buffer* id_exe_buffer, const char* type_name, const char
     ALUControl(id_exe_buffer, ALUOp, decimal(funct3), decimal(funct7));
 };
 
-void ALUControl(ID_EXE_buffer* id_exe_buffer,int alu_op[2], int funct3, int funct7)
+void ALUControl(ID_EXE_buffer* id_exe_buffer, int alu_op[2], int funct3, int funct7)
 {
     // ALU Control is determined by the ALUOp control signal as well as the funct3 and funct7 fields of the instruction
     // It is a 4-bit control signal that determines the actual operation the ALU performs.
@@ -371,8 +391,9 @@ void ALUControl(ID_EXE_buffer* id_exe_buffer,int alu_op[2], int funct3, int func
     else if (alu_op[0] == 0 && alu_op[1] == 1) // Branch
     {
         // ALU performs subtraction to compare the two register values
-        alu_ctrl[1] = 1;// SUB (0100)
+        alu_ctrl[1] = 1; alu_ctrl[2] = 1;// SUB (0110)
         id_exe_buffer->ALU_CTRL[1] = 1;
+        id_exe_buffer->ALU_CTRL[2] = 1;
     }
     else if (alu_op[0] == 1 && alu_op[1] == 0) // "R-type"
     {
@@ -381,8 +402,9 @@ void ALUControl(ID_EXE_buffer* id_exe_buffer,int alu_op[2], int funct3, int func
             case 0: // ADD or SUB
                 if (funct7 == 32) // SUB
                 {
-                    alu_ctrl[1] = 1; // SUB (0100)
+                    alu_ctrl[1] = 1; alu_ctrl[2] = 1;// SUB (0110)
                     id_exe_buffer->ALU_CTRL[1] = 1;
+                    id_exe_buffer->ALU_CTRL[2] = 1;
                 }
                 else // ADD
                 {
@@ -394,8 +416,8 @@ void ALUControl(ID_EXE_buffer* id_exe_buffer,int alu_op[2], int funct3, int func
                 // AND (0000)
                 break;
             case 6: // OR
-                alu_ctrl[0] = 1; // OR (1000)
-                id_exe_buffer->ALU_CTRL[0] = 1;
+                alu_ctrl[3] = 1; // OR (0001)
+                id_exe_buffer->ALU_CTRL[3] = 1;
                 break;
             case 4: // XOR
                 alu_ctrl[0] = 1; alu_ctrl[1] = 1; // XOR (1100)
