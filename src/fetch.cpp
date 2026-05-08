@@ -10,7 +10,9 @@ int Fetch(const char* file_name, IF_ID_buffer *if_id_buf, bool debug)
         if (pipeline)
         {
             static int inst_index = 0;
+            if (!STALL)
             inst_index++;
+            if_id_buf->instr_index = inst_index;
             printf("\nFETCH STAGE (%d) ===============================\n", inst_index);
         }
         else
@@ -35,7 +37,7 @@ int Fetch(const char* file_name, IF_ID_buffer *if_id_buf, bool debug)
     {
         if (debug)
             printf("STALLING...\n");
-        return result;
+        return result; // return to prevent buffer update
     }
 
     // We update pc value based on the value of PCSrc
@@ -86,7 +88,7 @@ int Fetch(const char* file_name, IF_ID_buffer *if_id_buf, bool debug)
     
     // read up to 32 chars or whitespace, store in instruction field of IF/ID buffer
     result = fscanf(file, "%32s", if_id_buf->instruction); // read the instruction into the buffer
-    
+
     // reset PCSrc
     PCSrc = 0;
     // if we stalled, then nothing is read and the buffer gets no update

@@ -2,8 +2,37 @@
 #include <string.h>
 #include "../header/decoder.h"
 
-void Decode(IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buffer, bool debug)
+void Decode(IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buffer, bool debug, EXE_MEM_buffer *exe_mem_buffer, MEM_WB_buffer *mem_wb_buffer)
 {
+    if (debug)
+    {
+        if (pipeline)
+        {
+            //static int inst_index = -1;
+            if (!STALL)
+            id_exe_buffer->instr_index = if_id_buffer->instr_index;
+            printf("\nDECODE STAGE (%d) ===============================\n", if_id_buffer->instr_index);
+        }
+        else
+            printf("\nDECODE STAGE ===============================\n");
+    }
+
+    if (STALL)
+    {
+        STALL--;
+         // return to prevent buffer updates
+        if (STALL) // if we are still stalling, insert a NOP and return to prevent buffer update
+        {
+            if (debug)
+            printf("STALLING...\n");
+            // Insert NOP (no operation)
+            id_exe_buffer->nop();
+            return;
+        }
+        // Either way, we must prevent execution with wrong data.
+        // decode has to occur again with data that is now available
+    }
+
     // Extract the instruction from the IF/ID buffer
     const char* instruction = if_id_buffer->instruction;
 
@@ -118,15 +147,6 @@ void Decode(IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buffer, bool debug
 
     if (debug)
     {
-        if (pipeline)
-        {
-            static int inst_index = -1;
-            inst_index++;
-            printf("\nDECODE STAGE (%d) ===============================\n", inst_index);
-        }
-        else
-            printf("\nDECODE STAGE ===============================\n");
-
         // Get name of instruction
         name = get_name(opcode, funct3, funct7);
         // Print Sequence (Now for debug purposes)
@@ -146,12 +166,9 @@ void Decode(IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buffer, bool debug
         {printf("Immediate: %d (or 0x%x)\n", decimal(imm), decimal(imm));};
     }
 
-    if (STALL)
-    {
-        if (debug)
-            printf("STALLING...\n");
-        return;
-    }
+    // Clear the buffer for a new instruction (not actually a NOP)
+    id_exe_buffer->nop();
+    id_exe_buffer->instr_index = if_id_buffer->instr_index;
 
     // We need to populate the out buffer (ID/EXE) to fulfill the decode stage
     // Pass along normal next pc value to potentially store for jump instructions
@@ -164,6 +181,121 @@ void Decode(IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buffer, bool debug
     {id_exe_buffer->rd = decimal(rd);}
     if (*imm)
     {id_exe_buffer->immediate = decimal(imm);};
+
+    if (pipeline)
+    {
+        // Hazard Detection / Forwarding //
+
+        /*
+            -To detect hazards we check if our rs1 or rs2 value is equal to the rd of a
+            previous instruction.
+            -We also take advantage of the fact we silently recieve the mem_wb_buffer
+            to check 2 stages away.
+            -If it is an ALU instruction, we can simply forward values immediately from the
+            respective buffer.
+            -If it is a load, we must stall untill the value is available.
+                -Though we could forward the mem result from the mem_wb_buffer if needed
+        */
+        
+        // // (Need last instr's rd) ==============================================
+        if (exe_mem_buffer != nullptr)
+        {
+            // We must check if our rs1 or rs2 if existing are the rd of the previous instr
+            // and that instr was not a load
+            if (id_exe_buffer->rs1 == exe_mem_buffer->rd && id_exe_buffer->rs1)
+            {
+                if (debug) printf("\nHazard detected: x%d\n", id_exe_buffer->rs1);
+                STALL = 2; if (debug) printf("Stalling for 2 cycles\n");
+                id_exe_buffer->nop(); return;
+                
+                /*
+                // If so we can forward whatever the previous result was before writeback
+                if (!exe_mem_buffer->MemtoReg)
+                {
+                    id_exe_buffer->read_data1 = exe_mem_buffer->alu_result;
+                    if (debug) printf("Forwarding: %d to read_data1 from EXE/MEM\n", mem_wb_buffer->alu_result);
+                }
+                // If not we must stall for 2 cycles
+                else
+                { 
+                    STALL == 2; exe_mem_buffer->nop();
+                    if (debug) printf("Stalling for 2 cycles\n");
+                    return; 
+                }
+                */
+            }
+            if (id_exe_buffer->rs2 == exe_mem_buffer->rd && !exe_mem_buffer->MemtoReg && id_exe_buffer->rs2)
+            {
+                if (debug) printf("\nHazard detected: x%d\n", id_exe_buffer->rs2);
+                STALL = 2; if (debug) printf("Stalling for 2 cycles\n");
+                id_exe_buffer->nop(); return;
+                /*
+                if (!exe_mem_buffer->MemtoReg)
+                {
+                    id_exe_buffer->read_data2 = exe_mem_buffer->alu_result;
+                    if (debug) printf("Forwarding: %d to read_data2 from EXE/MEM\n", mem_wb_buffer->alu_result);
+                }
+                // If not we must stall for 2 cycles
+                else
+                { 
+                    STALL == 2; 
+                    exe_mem_buffer->nop();
+                    if (debug) printf("Stalling for 2 cycles\n");
+                    return; 
+                }
+                    */
+            }
+        }
+        // // (Need 2nd last instr's rd) ==============================================
+        if (mem_wb_buffer != nullptr) // logically same as (if pipeline)
+        {
+            // if rs1 is the current MEM/WB buffer rd (not written yet)
+            if (id_exe_buffer->rs1 == mem_wb_buffer->rd && id_exe_buffer->rs1)
+            {
+                if (debug) printf("\nHazard detected: x%d\n", id_exe_buffer->rs1);
+                STALL = 1; if (debug) printf("Stalling for 1 cycle\n");
+                id_exe_buffer->nop(); return;
+                /*
+                // If so we can forward whatever the previous result was before writeback
+                if (!mem_wb_buffer->MemtoReg)
+                {
+                    id_exe_buffer->read_data1 = mem_wb_buffer->alu_result;
+                    if (debug) printf("Forwarding: %d to read_data1 from MEM/WB\n", mem_wb_buffer->alu_result);
+                }
+                // If not we must stall for 1 cycle
+                else
+                { 
+                    STALL == 1; 
+                    exe_mem_buffer->nop();
+                    if (debug) printf("Stalling for 2 cycles\n");
+                    return; 
+                }
+                    */
+            }
+            // if rs2 is the current MEM/WB buffer rd (not written yet)
+            if (id_exe_buffer->rs2 == mem_wb_buffer->rd && id_exe_buffer->rs2)
+            {
+                if (debug) printf("\nHazard detected: x%d\n", id_exe_buffer->rs2);
+                STALL = 1; if (debug) printf("Stalling for 1 cycle\n");
+                id_exe_buffer->nop(); return;
+                /*
+                if (!mem_wb_buffer->MemtoReg)
+                {
+                    id_exe_buffer->read_data2 = mem_wb_buffer->alu_result;
+                    if (debug) printf("Forwarding: %d to read_data2 from MEM/WB\n", mem_wb_buffer->alu_result);
+                }
+                // If not we must stall for 1 cycles
+                else
+                { 
+                    STALL == 1; 
+                    exe_mem_buffer->nop(); 
+                    if (debug) printf("Stalling for 2 cycles\n");
+                    return; 
+                }
+                    */
+            }
+        }
+    }
 
     // We finally need to store the actual operation we decoded.
     // Depending on our implementation, there are many ways to do this.
@@ -245,10 +377,10 @@ void ControlUnit(ID_EXE_buffer* id_exe_buffer, const char* type_name, const char
             // Jalr writes current pc to rd like Jal and it needs an ADD operation
             // to add the immediate to whatever is in rs1 rather than pc (logically an address)
             // It then should set the branch target to this result
-            //Jump = 1;
+            Jump = 1;
             id_exe_buffer->Jump = 1;
             // 3 - Jalr
-            //PCSrc = 3;
+            PCSrc = 3;
             id_exe_buffer->PCSrc = 3;
 
             // ALUOp is (10) for JALR since it has a funct3
@@ -332,10 +464,9 @@ void ControlUnit(ID_EXE_buffer* id_exe_buffer, const char* type_name, const char
         Jump = 1;
         id_exe_buffer->Jump = 1;
         PCSrc = 2;
+        id_exe_buffer->PCSrc = 2; // 2 for jal
         if (debug)
             printf("Asserting Jump: %d and PCSrc: %d for jal\n", Jump, PCSrc);
-
-        id_exe_buffer->PCSrc = 2; // 2 for jal
         // In leu of a personal adder unit we just calculate the target here.
         // It will propagate along until the wb or mem stage.
         // We add to next pc in the id_exe_buffer since we just got it from the if_id_buffer

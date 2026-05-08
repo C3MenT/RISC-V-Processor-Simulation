@@ -88,6 +88,7 @@ typedef struct IF_ID_buffer
 {
     char instruction[33]; // 32-bit machine code instruction as a string of 1s and 0s (32 characters + null terminator)
     int pc; // potentially used pc + 4 value
+    int instr_index; // an enumeration for each instruction
     
     IF_ID_buffer() // constructor to initialize the buffer values to 0
     {
@@ -96,6 +97,7 @@ typedef struct IF_ID_buffer
             instruction[i] = '0'; // initialize instruction to all 0s
         }
         pc = 0; // initialize pc value in IF/ID buffer to 0
+        instr_index = 0;
     }
     void print_buffer()
     {
@@ -134,6 +136,7 @@ typedef struct ID_EXE_buffer
     // This is set through multiple muxes physically, but here we will use enumeration
     // [0 = PC+4, 1 = Branch (PC + imm {if condition}), 2 = Jal (pc + imm), 3 = Jalr (rs1 + imm)]
     int PCSrc;
+    int instr_index; // an enumeration for each instruction
     
     // Constructor to initialize all values to 0
     ID_EXE_buffer()
@@ -156,8 +159,30 @@ typedef struct ID_EXE_buffer
         Jump = 0;
         ALU_CTRL[0] = 0; ALU_CTRL[1] = 0; ALU_CTRL[2] = 0; ALU_CTRL[3] = 0;
         PCSrc = 0;
+        instr_index = 0;
     }
+    void nop()
+    {
+        pc = 0;
+        read_data1 = 0;
+        read_data2 = 0;
+        immediate = 0;
+        rs1 = 0;
+        rs2 = 0;
+        rd = 0;
+        pc_target = 0;
 
+        RegWrite = 0;
+        Branch = 0;
+        ALUSrc = 0;
+        MemWrite = 0;
+        MemtoReg = 0;
+        MemRead = 0;
+        Jump = 0;
+        ALU_CTRL[0] = 0; ALU_CTRL[1] = 0; ALU_CTRL[2] = 0; ALU_CTRL[3] = 0;
+        PCSrc = 0;
+        instr_index = 0;
+    }
     void print_buffer()
     {
         std::cout << "\nID/EXE Buffer Values:\n";
@@ -205,6 +230,7 @@ typedef struct EXE_MEM_buffer
     // [0 = PC+4, 1 = Branch (PC + imm {if condition}), 2 = Jal (pc + imm), 3 = Jalr (rs1 + imm)]
     int PCSrc; 
     int ALU_Zero; // whether an ALU Sub operation resulted in 0
+    int instr_index; // an enumeration for each instruction
 
     EXE_MEM_buffer() // constructor to initialize all values to 0
     {
@@ -223,6 +249,7 @@ typedef struct EXE_MEM_buffer
         MemRead = 0;
         PCSrc = 0;
         ALU_Zero = 0;
+        instr_index = 0;
     }
     void nop()
     {
@@ -241,6 +268,7 @@ typedef struct EXE_MEM_buffer
         MemRead = 0;
         PCSrc = 0;
         ALU_Zero = 0;
+        instr_index = 0;
     }
     void print_buffer()
     {
@@ -282,6 +310,7 @@ typedef struct MEM_WB_buffer
     // [0 = PC+4, 1 = Branch (PC + imm {if condition}), 2 = Jal (pc + imm), 3 = Jalr (rs1 + imm)]
     int PCSrc;
     int ALU_Zero; // whether an ALU Sub operation resulted in 0
+    int instr_index; // an enumeration for each instruction
 
     MEM_WB_buffer() // constructor to initialize all values to 0
     {
@@ -297,6 +326,7 @@ typedef struct MEM_WB_buffer
         Jump = 0;
         PCSrc = 0;
         ALU_Zero = 0;
+        instr_index = 0;
     }
     void print_buffer()
     {

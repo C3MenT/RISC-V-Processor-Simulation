@@ -6,9 +6,8 @@ void Writeback(MEM_WB_buffer *mem_wb_buffer, bool debug){
     {
         if (pipeline)
         {
-            static int inst_index = -4;
-            inst_index++;
-            printf("\nWRITEBACK STAGE (%d) ===============================\n", inst_index);
+            //static int inst_index = -4;
+            printf("\nWRITEBACK STAGE (%d) ===============================\n", mem_wb_buffer->instr_index);
         }
         else
             printf("\nWRITEBACK STAGE ===============================\n");
@@ -89,6 +88,7 @@ void Writeback(MEM_WB_buffer *mem_wb_buffer, bool debug){
     }
 
     rf[0] = 0; // Hard Reset the Zero Register to 0
+    if (!STALL)
     total_clock_cycles++; // Project instructions imply total clock cycles be updated in write back
 
     if (debug)

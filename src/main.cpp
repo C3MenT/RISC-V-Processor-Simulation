@@ -50,7 +50,8 @@ int main(int argc, char* argv[])
     FILE* file;
     const char* file_name;
 
-    // Check if main was given a file name as a command line argument 
+    // // Check if main was given a file name as a command line argument // //
+    // Using runtime input
     if (argv[1] == nullptr)
     {
         char input_file_name[100]; // buffer size is arbitrary
@@ -66,6 +67,7 @@ int main(int argc, char* argv[])
         }
         file_name = input_file_name;
     }
+    // Using Command Line
     else
     {
         // Open the input file containing the machine code instructions
@@ -76,11 +78,19 @@ int main(int argc, char* argv[])
             return 1;
         }
         // Additionally allow debug toggling from command prompt
-        if (argv[2] != nullptr && argv[2][0] == '-' && argv[2][1] == 'd')
+        if ((argv[2] != nullptr && argv[2][0] == '-' && argv[2][1] == 'd') || 
+        (argv[3] != nullptr && argv[3][0] == '-' && argv[3][1] == 'd') )
         {
             printf("Debug mode enabled\n");
             debug = true;
         }
+        // Additionally allow pipeline toggling
+        if ((argv[2] != nullptr && argv[2][0] == '-' && argv[2][1] == 'p') || 
+        (argv[3] != nullptr && argv[3][0] == '-' && argv[3][1] == 'p') )
+        {
+            pipeline = true;
+        }
+
         file_name = argv[1];
     }
 
@@ -125,7 +135,7 @@ int main(int argc, char* argv[])
     //rf[6] = 1; rf[8] = 32; d_mem[32] = 10;
 
 
-    
+
     // ========== // MAIN DRIVER // ========== //
     // Main simulation loops: Fetch, Decode, Execute, Memory, Write Back
     // Sequential default, with option to run pipelined through flag
@@ -200,7 +210,7 @@ int main(int argc, char* argv[])
                 printf("\ntotal_clock_cycles %d:\n", total_clock_cycles + 1);
 
             Writeback(&mem_wb_buffer, debug);
-            if (mem_wb_buffer.RegWrite && !mem_wb_buffer.MemtoReg)
+            if (mem_wb_buffer.RegWrite && total_clock_cycles < instruction_count + 4)
             {
                 if (use_reg_names)
                 {
@@ -214,18 +224,16 @@ int main(int argc, char* argv[])
         
             Mem(&exe_mem_buffer, &mem_wb_buffer, debug);
             
-            if (exe_mem_buffer.MemWrite)
+            if (exe_mem_buffer.MemWrite && total_clock_cycles < instruction_count + 4)
                 printf("memory 0x%x is modified to 0x%x\n", exe_mem_buffer.alu_result, exe_mem_buffer.rs2_val);
-            
-            if (STALL < 3)
+
             Execute(&id_exe_buffer, &exe_mem_buffer, alu_ctrl, debug);
-            
-            if (STALL < 2)
-            Decode(&if_id_buffer, &id_exe_buffer, debug);
+ 
+            Decode(&if_id_buffer, &id_exe_buffer, debug, &exe_mem_buffer, &mem_wb_buffer);
 
         // Fetch the next instruction and process loop while we are still reading instructions or last is incomplete
-        } while ((Fetch(file_name, &if_id_buffer, debug) > 0) || (total_clock_cycles < instruction_count + 4));
-        printf("\nprogram terminated:\ntotal execution time is %d cycles\n", total_clock_cycles);
+        } while ((Fetch(file_name, &if_id_buffer, debug) > 0) || (total_clock_cycles < instruction_count + 4));    
     }
+    printf("\nprogram terminated:\ntotal execution time is %d cycles\n", total_clock_cycles);
     return 0;
 }

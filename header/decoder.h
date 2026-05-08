@@ -9,7 +9,7 @@
 /// @param if_id_buffer the IF/ID buffer
 /// @param id_exe_buffer the ID/EXE buffer
 /// @param debug boolean flag to enable debug output
-void Decode(IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buffer, bool debug = false);
+void Decode(IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buffer, bool debug = false, EXE_MEM_buffer *exe_mem_buffer = nullptr, MEM_WB_buffer *mem_wb_buffer = nullptr);
 
 /// @brief Populates the control signals based on given instruction type. 
 /// This is used by the ALU Control to determine which ALU operation to perform in the execute stage.

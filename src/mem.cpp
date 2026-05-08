@@ -38,18 +38,18 @@ void Mem(EXE_MEM_buffer *exe_mem_buffer, MEM_WB_buffer *mem_wb_buffer, bool debu
     {
         if (pipeline)
         {
-            static int inst_index = -3;
-            inst_index++;
-            printf("\nMEMORY STAGE (%d) ===============================\n", inst_index);
+            //static int inst_index = -3;
+            mem_wb_buffer->instr_index = exe_mem_buffer->instr_index;
+            printf("\nMEMORY STAGE (%d) ===============================\n", mem_wb_buffer->instr_index);
         }
         else
             printf("\nMEMORY STAGE ===============================\n");
 
-        if (MemRead)
+        if (exe_mem_buffer->MemRead)
         {
             std::cout << "Reading from memory address " << address << " to get value " << value << std::endl;
         }
-        else if (MemWrite)
+        else if (exe_mem_buffer->MemWrite)
         {
             std::cout << "Writing value " << exe_mem_buffer->rs2_val << " to memory address " << address << std::endl;
             
@@ -60,11 +60,11 @@ void Mem(EXE_MEM_buffer *exe_mem_buffer, MEM_WB_buffer *mem_wb_buffer, bool debu
         }
     }
 
-    if(MemRead) //this means its load instruction
+    if(exe_mem_buffer->MemRead) //this means its load instruction
     {
         mem_wb_buffer->mem_result = value;   //store the value in the mem/wb buffer
     }
-    if(MemWrite) //this means its store word
+    if(exe_mem_buffer->MemWrite) //this means its store word
     {
         d_mem[index] = exe_mem_buffer->rs2_val; // rs2 would hold the value to store for store instructions, so we write that value to memory at the effective address
     }
