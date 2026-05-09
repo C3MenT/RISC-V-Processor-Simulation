@@ -2,10 +2,47 @@
 #include <string.h>
 #include "../header/decoder.h"
 
-void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buffer, bool debug)
+void Decode(IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buffer, bool debug, EXE_MEM_buffer *exe_mem_buffer, MEM_WB_buffer *mem_wb_buffer)
 {
+    if (debug)
+    {
+        if (pipeline)
+        {
+            //static int inst_index = -1;
+            if (!STALL)
+            id_exe_buffer->instr_index = if_id_buffer->instr_index;
+            printf("\nDECODE STAGE (%d) ===============================\n", if_id_buffer->instr_index);
+        }
+        else
+            printf("\nDECODE STAGE ===============================\n");
+    }
+
+    if (STALL)
+    {
+        STALL--;
+         // return to prevent buffer updates
+        if (STALL) // if we are still stalling, insert a NOP and return to prevent buffer update
+        {
+            if (debug)
+            printf("STALLING...\n");
+            // Insert NOP (no operation)
+            id_exe_buffer->nop();
+            return;
+        }
+        // Either way, we must prevent execution with wrong data.
+        // decode has to occur again with data that is now available
+    }
+
     // Extract the instruction from the IF/ID buffer
     const char* instruction = if_id_buffer->instruction;
+
+    if (FLUSH == 2) // if we must flush up to the ID
+    {
+        // clear the instruction since we got an incorrect one
+        instruction = "00000000000000000000000000000000\0";
+        FLUSH--;
+    }
+
 
     // First we get the opcode
     const char* opcode = get_opcode(instruction);
@@ -108,12 +145,12 @@ void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buf
         type_name = "NOT FOUND";
     }
 
-    if (debug){
+    if (debug)
+    {
         // Get name of instruction
         name = get_name(opcode, funct3, funct7);
-
         // Print Sequence (Now for debug purposes)
-        printf("\nInstruction Type: %s\n", type_name);
+        printf("Instruction Type: %s\n", type_name);
         printf("Operation: %s\n", name);
         if (*rs1)
         {printf("Rs1: x%d\n", decimal(rs1));}
@@ -129,31 +166,157 @@ void Decode(int *reg_file, IF_ID_buffer *if_id_buffer, ID_EXE_buffer *id_exe_buf
         {printf("Immediate: %d (or 0x%x)\n", decimal(imm), decimal(imm));};
     }
 
+    // Clear the buffer for a new instruction (not actually a NOP)
+    id_exe_buffer->nop();
+    id_exe_buffer->instr_index = if_id_buffer->instr_index;
+
     // We need to populate the out buffer (ID/EXE) to fulfill the decode stage
+    // Pass along normal next pc value to potentially store for jump instructions
     id_exe_buffer->pc = if_id_buffer->pc;
     if (*rs1)
-    {id_exe_buffer->rs1 = decimal(rs1); id_exe_buffer->read_data1 = reg_file[decimal(rs1)];} 
+    {id_exe_buffer->rs1 = decimal(rs1); id_exe_buffer->read_data1 = rf[decimal(rs1)];} 
     if (*rs2)
-    {id_exe_buffer->rs2 = decimal(rs2); id_exe_buffer->read_data2 = reg_file[decimal(rs2)];}
+    {id_exe_buffer->rs2 = decimal(rs2); id_exe_buffer->read_data2 = rf[decimal(rs2)];}
     if (*rd)
     {id_exe_buffer->rd = decimal(rd);}
     if (*imm)
     {id_exe_buffer->immediate = decimal(imm);};
+
+    if (pipeline)
+    {
+        // Hazard Detection / Forwarding //
+
+        /*
+            -To detect hazards we check if our rs1 or rs2 value is equal to the rd of a
+            previous instruction.
+            -We also take advantage of the fact we silently recieve the mem_wb_buffer
+            to check 2 stages away.
+            -If it is an ALU instruction, we can simply forward values immediately from the
+            respective buffer.
+            -If it is a load, we must stall untill the value is available.
+                -Though we could forward the mem result from the mem_wb_buffer if needed
+        */
+        
+        // // (Need last instr's rd) ==============================================
+        if (exe_mem_buffer != nullptr)
+        {
+            // We must check if our rs1 or rs2 if existing are the rd of the previous instr
+            // and that instr was not a load
+            if (id_exe_buffer->rs1 == exe_mem_buffer->rd && id_exe_buffer->rs1)
+            {
+                if (debug) printf("\nHazard detected: x%d\n", id_exe_buffer->rs1);
+                STALL = 2; if (debug) printf("Stalling for 2 cycles\n");
+                id_exe_buffer->nop(); return;
+                
+                /*
+                // If so we can forward whatever the previous result was before writeback
+                if (!exe_mem_buffer->MemtoReg)
+                {
+                    id_exe_buffer->read_data1 = exe_mem_buffer->alu_result;
+                    if (debug) printf("Forwarding: %d to read_data1 from EXE/MEM\n", mem_wb_buffer->alu_result);
+                }
+                // If not we must stall for 2 cycles
+                else
+                { 
+                    STALL == 2; exe_mem_buffer->nop();
+                    if (debug) printf("Stalling for 2 cycles\n");
+                    return; 
+                }
+                */
+            }
+            if (id_exe_buffer->rs2 == exe_mem_buffer->rd && !exe_mem_buffer->MemtoReg && id_exe_buffer->rs2)
+            {
+                if (debug) printf("\nHazard detected: x%d\n", id_exe_buffer->rs2);
+                STALL = 2; if (debug) printf("Stalling for 2 cycles\n");
+                id_exe_buffer->nop(); return;
+                /*
+                if (!exe_mem_buffer->MemtoReg)
+                {
+                    id_exe_buffer->read_data2 = exe_mem_buffer->alu_result;
+                    if (debug) printf("Forwarding: %d to read_data2 from EXE/MEM\n", mem_wb_buffer->alu_result);
+                }
+                // If not we must stall for 2 cycles
+                else
+                { 
+                    STALL == 2; 
+                    exe_mem_buffer->nop();
+                    if (debug) printf("Stalling for 2 cycles\n");
+                    return; 
+                }
+                    */
+            }
+        }
+        // // (Need 2nd last instr's rd) ==============================================
+        if (mem_wb_buffer != nullptr) // logically same as (if pipeline)
+        {
+            // if rs1 is the current MEM/WB buffer rd (not written yet)
+            if (id_exe_buffer->rs1 == mem_wb_buffer->rd && id_exe_buffer->rs1)
+            {
+                if (debug) printf("\nHazard detected: x%d\n", id_exe_buffer->rs1);
+                STALL = 1; if (debug) printf("Stalling for 1 cycle\n");
+                id_exe_buffer->nop(); return;
+                /*
+                // If so we can forward whatever the previous result was before writeback
+                if (!mem_wb_buffer->MemtoReg)
+                {
+                    id_exe_buffer->read_data1 = mem_wb_buffer->alu_result;
+                    if (debug) printf("Forwarding: %d to read_data1 from MEM/WB\n", mem_wb_buffer->alu_result);
+                }
+                // If not we must stall for 1 cycle
+                else
+                { 
+                    STALL == 1; 
+                    exe_mem_buffer->nop();
+                    if (debug) printf("Stalling for 2 cycles\n");
+                    return; 
+                }
+                    */
+            }
+            // if rs2 is the current MEM/WB buffer rd (not written yet)
+            if (id_exe_buffer->rs2 == mem_wb_buffer->rd && id_exe_buffer->rs2)
+            {
+                if (debug) printf("\nHazard detected: x%d\n", id_exe_buffer->rs2);
+                STALL = 1; if (debug) printf("Stalling for 1 cycle\n");
+                id_exe_buffer->nop(); return;
+                /*
+                if (!mem_wb_buffer->MemtoReg)
+                {
+                    id_exe_buffer->read_data2 = mem_wb_buffer->alu_result;
+                    if (debug) printf("Forwarding: %d to read_data2 from MEM/WB\n", mem_wb_buffer->alu_result);
+                }
+                // If not we must stall for 1 cycles
+                else
+                { 
+                    STALL == 1; 
+                    exe_mem_buffer->nop(); 
+                    if (debug) printf("Stalling for 2 cycles\n");
+                    return; 
+                }
+                    */
+            }
+        }
+    }
 
     // We finally need to store the actual operation we decoded.
     // Depending on our implementation, there are many ways to do this.
     // One is literally storing the name:
     //id_exe_buffer->instruction = name;
 
-    Control_Unit(type_name, opcode); // this will populate the control_signals global variable based on the instruction type
+    ControlUnit(id_exe_buffer, type_name, opcode, funct3, funct7, debug); // this will populate the control_signals global variable based on the instruction type
 
     // Garbage Collection (all dynamically allocated pointers)
     //delete[] rs1; delete[] rs2; delete[] rd; delete[] funct3; delete[] funct7;
      //delete[] imm; 
      delete[] imm1; delete[] imm2; delete[] imm3; delete[] imm4; //delete[] opcode; delete[] type_name; delete[] funct3; delete[] funct7;
+
+    if(debug)
+    {
+    id_exe_buffer->print_buffer(); 
+    printf("============================================\n");
+    }
 };
 
-void Control_Unit(const char* type_name, const char* opcode)
+void ControlUnit(ID_EXE_buffer* id_exe_buffer, const char* type_name, const char* opcode, const char* funct3, const char* funct7, bool debug)
 {
     // Actual datapaths use the ALUOp control signal so we can do that also based upon
     // the opcode, funct3, and funct7 values. 
@@ -165,91 +328,232 @@ void Control_Unit(const char* type_name, const char* opcode)
     // ALU Op is a bit more nuanced
     // It is an integer value representing the actual 2-bit ALU Op control signal,
     // where 0 is Load/Store, 1 is Branch, 2 is R-type, and 3 is I-type.
+    
+    // Regardless, all will begin flipped off and we will turn on the ones we need for each instruction type
+    RegWrite = 0;
+    id_exe_buffer->RegWrite = 0;
+    Branch = 0;
+    id_exe_buffer->Branch = 0;
+    ALUSrc = 0;
+    id_exe_buffer->ALUSrc = 0;
+    MemWrite = 0;
+    id_exe_buffer->MemWrite = 0;
+    MemtoReg = 0;
+    id_exe_buffer->MemtoReg = 0;
+    MemRead = 0;
+    id_exe_buffer->MemRead = 0;
+    Jump = 0;
+    id_exe_buffer->Jump = 0;
+    
+    //id_exe_buffer->PCSrc = 0;
+    // We reset pc_target here because of jals (see UJ clause)
+    id_exe_buffer->pc_target = 0;
+
+    // we make an ALUOp "signal" (var) to pass to the ALU Control "Unit" (function)
+    int ALUOp[2] = {0, 0};
+
+    // There are special I types that need extra control signal checks to support
     if (type_name == "I")
     {
         // Set control signals for I-type instructions
-        control_signals[0] = 1; // RegWrite
-        control_signals[1] = 0; // Branch
-        control_signals[2] = 1; // ALUSrc
-        control_signals[3] = 0; // MemWrite
+        RegWrite = 1;
+        id_exe_buffer->RegWrite = 1;
+        ALUSrc = 1;
+        id_exe_buffer->ALUSrc = 1;
         
         if (decimal(opcode) == 3) // if we are doing a load instruction
         {
-            control_signals[4] = 1; // MemtoReg
-            control_signals[5] = 1; // MemRead
-            control_signals[6] = 0; // ALUOp (0 for load)
+            // Loads additionally need MemtoReg set and MemRead set
+            MemtoReg = 1;
+            id_exe_buffer->MemtoReg = 1;
+            MemRead = 1;
+            id_exe_buffer->MemRead = 1;
+            // Loads always need an ADD operation so ALUOp becomes 00
+            // ALUOp is already 00
+        }
+        else if (decimal(opcode) == 103) // If this happens to be JALR
+        {
+            // Jalr is a little weird but understandable
+            // Jalr writes current pc to rd like Jal and it needs an ADD operation
+            // to add the immediate to whatever is in rs1 rather than pc (logically an address)
+            // It then should set the branch target to this result
+            Jump = 1;
+            id_exe_buffer->Jump = 1;
+            // 3 - Jalr
+            PCSrc = 3;
+            id_exe_buffer->PCSrc = 3;
+
+            // ALUOp is (10) for JALR since it has a funct3
+            // since the ALU control ADDs (offset from addr) it needs an add operation
+            // instead of determining it now we use the funct3 being 000 to let ALU Control
+            // determine it after this
+            ALUOp[0] = 1; ALUOp[1] = 0; 
         }
         else
         {
-            control_signals[4] = 0; // MemtoReg
-            control_signals[5] = 0; // MemRead
-            control_signals[6] = 3; // ALUOp (3 for I-type)
+            ALUOp[0] = 1; ALUOp[1] = 0; // ALUOp is 2 for ALU I-type instructions since the ALU control signals are determined by the funct3 field of the instruction
         }
-
-        control_signals[7] = 0; // Jump
     }
     else if (type_name == "S")
     {
         // Set control signals for S-type instructions
-        control_signals[0] = 0; // RegWrite
-        control_signals[1] = 0; // Branch
-        control_signals[2] = 1; // ALUSrc
-        control_signals[3] = 1; // MemWrite
-        control_signals[4] = 0; // MemtoReg
-        control_signals[5] = 1; // MemRead
-        control_signals[6] = 0; // ALUOp (0 for S-type)
-        control_signals[7] = 0; // Jump
-        
+        ALUSrc = 1;
+        id_exe_buffer->ALUSrc = 1;
+        MemWrite = 1;
+        id_exe_buffer->MemWrite = 1;
+        // ALUOp is 0 for store instructions since the ALU just needs to perform an addition to calculate the memory address
     }
     else if (type_name == "R")
     {
         // Set control signals for R-type instructions
-        control_signals[0] = 1; // RegWrite
-        control_signals[1] = 0; // Branch
-        control_signals[2] = 0; // ALUSrc
-        control_signals[3] = 0; // MemWrite
-        control_signals[4] = 0; // MemtoReg
-        control_signals[5] = 0; // MemRead
-        control_signals[6] = 2; // ALUOp (2 for R-type)
-        control_signals[7] = 0; // Jump
+        RegWrite = 1;
+        id_exe_buffer->RegWrite = 1;
+        // ALUOp is 2 for R-type instructions since the ALU control signals are determined by the funct3 and funct7 fields of the instruction
+        ALUOp[0] = 1; ALUOp[1] = 0;
     }
     else if (type_name == "SB")
     {
         // Set control signals for SB-type instructions
-        control_signals[0] = 0; // RegWrite
-        control_signals[1] = 1; // Branch
-        control_signals[2] = 0; // ALUSrc
-        control_signals[3] = 0; // MemWrite
-        control_signals[4] = 0; // MemtoReg
-        control_signals[5] = 0; // MemRead
-        control_signals[6] = 1; // ALUOp (1 for SB-type)
-        control_signals[7] = 0; // Jump
+        //Branch = 1;
+        id_exe_buffer->Branch = 1;
+        // 1 - Branch (PC + imm)
+        id_exe_buffer->PCSrc = 1;
+        // Branch predictors would use their own adder to get the offset like in Jal so we simulate that here
+        id_exe_buffer->pc_target = id_exe_buffer->pc - 4 + id_exe_buffer->immediate;
+        branch_target = pc + id_exe_buffer->immediate;
+
+        // ALUOp is 1 for branch instructions since the ALU just needs to perform a subtraction to compare the two register values
+        ALUOp[0] = 0; ALUOp[1] = 1;  
     }
+    // U Types are strange
+    // There are only lui "load upper immediate" and auipc "add upper imm to pc"
+    // Upper immediate instructions are just longer immediate instructions that 
+    // do not have a funct3 field either.
+    // We will support load and add to pc with an add ALU control as if it is a mem op
+    // auipc will need extra support which will be left as TODO if ever we feel like adding it
     else if (type_name == "U")
     {
         // Set control signals for U-type instructions
-        control_signals[0] = 1; // RegWrite
-        control_signals[1] = 0; // Branch
-        control_signals[2] = 1; // ALUSrc
-        control_signals[3] = 0; // MemWrite
-        control_signals[4] = 0; // MemtoReg
-        control_signals[5] = 0; // MemRead
-        control_signals[6] = 3; // ALUOp (3 for U-type) (for now)
-        control_signals[7] = 0; // Jump
+        RegWrite = 1;
+        id_exe_buffer->RegWrite = 1;
+        ALUSrc = 1;
+        id_exe_buffer->ALUSrc = 1;
+        // ALUOp (0 for U-type) 
+        // ALUOp is already 00
+        if (decimal(opcode) == 23) // if auipc "load address"
+        {
+            // rd = imm + pc
+            // to accomplish this with as little effort possible we add immediate to pc
+            // and store in immediate of buffer since rs1 should be zero in auipc
+            id_exe_buffer->immediate += pc;
+        }
     }
+    // Jal is the only UJ type
+    // Jal is special in that it does not use the ALU; it has a dedicated adder.
+    // Jal like jalr stores current pc in the rd reg but
+    // it calculates an offset from current pc, setting pc to the result.
     else if (type_name == "UJ")
     {
-        // Set control signals for UJ-type instructions
-        control_signals[0] = 1; // RegWrite
-        control_signals[1] = 0; // Branch
-        control_signals[2] = 1; // ALUSrc
-        control_signals[3] = 0; // MemWrite
-        control_signals[4] = 0; // MemtoReg
-        control_signals[5] = 0; // MemRead
-        control_signals[6] = 3; // ALUOp (3 for UJ-type) (for now)
-        control_signals[7] = 1; // Jump
+        // Set control signals for UJ-type instruction
+        // to store PC in write back
+        RegWrite = 1;
+        id_exe_buffer->RegWrite = 1;
+        // ALU isn't used
+        // ALUSrc = X (Don't care)
+        // assert jump
+        Jump = 1;
+        id_exe_buffer->Jump = 1;
+        PCSrc = 2;
+        id_exe_buffer->PCSrc = 2; // 2 for jal
+        if (debug)
+            printf("Asserting Jump: %d and PCSrc: %d for jal\n", Jump, PCSrc);
+        // In leu of a personal adder unit we just calculate the target here.
+        // It will propagate along until the wb or mem stage.
+        // We add to next pc in the id_exe_buffer since we just got it from the if_id_buffer
+        // and therefore, it is the correct PC + 4 value for this stage. We subtract 4 to get
+        // the pc corresponding to this instruction.
+        jal_target = pc + id_exe_buffer->immediate;
+
+
+        if (pipeline)
+        {
+            // in the pipelined case, we must update pc immediately and compensate with stalls
+            // setting it here eschews any need to check PCSrc in Fetch which is what actually happens
+            //pc = id_exe_buffer->pc - 4 + id_exe_buffer->immediate;
+            
+            // We only "flush" the IF stage
+            // Since we jump early before decode is finished and the implementation executes
+            // stages backwards, there is no need to actually do anything since Fetch has not
+            // happened and goten yet anything in reality.
+            FLUSH = 1; 
+            // we also have to check for at least 3 stages (2 with forwarding if anything needs 'rd')
+            //if (debug)
+                //std::cout << "Jumping to " << pc << std::endl;
+        }
+        else
+            id_exe_buffer->pc_target = id_exe_buffer->pc - 4 + id_exe_buffer->immediate;
+        
+        // ALUOp does not matter ALU isn't used
     }
+    // set the actual ALU control signals based on the ALUOp and funct3/funct7 values
+    ALUControl(id_exe_buffer, ALUOp, decimal(funct3), decimal(funct7));
 };
+
+void ALUControl(ID_EXE_buffer* id_exe_buffer, int alu_op[2], int funct3, int funct7)
+{
+    // ALU Control is determined by the ALUOp control signal as well as the funct3 and funct7 fields of the instruction
+    // It is a 4-bit control signal that determines the actual operation the ALU performs.
+    // For R-type instructions, the ALUOp is 2, and the funct3 and funct7 fields determine the specific operation (e.g., add, sub, and, or, etc.).
+    // For I-type instructions, the ALUOp is 3, and the funct3 field determines the specific operation (e.g., addi, slti, xori, etc.).
+    // For load/store instructions, the ALUOp is 0, and the ALU performs an addition to calculate the memory address.
+    // For branch instructions, the ALUOp is 1, and the ALU performs a subtraction to compare the two register values.
+
+    // This function will set the global alu_ctrl variable based on these inputs for use in the execute stage.
+    // We start all bits flipped off and then turn on the ones we need for each instruction type based on the inputs.
+
+    alu_ctrl[0] = 0; alu_ctrl[1] = 0; alu_ctrl[2] = 0; alu_ctrl[3] = 0; // default to AND (all 0s)
+    id_exe_buffer->ALU_CTRL[0] = 0; id_exe_buffer->ALU_CTRL[1] = 0; id_exe_buffer->ALU_CTRL[2] = 0; id_exe_buffer->ALU_CTRL[3] = 0;
+
+    if (alu_op[0] == 0 && alu_op[1] == 0) // Load/Store
+    {
+        // ALU performs addition to calculate memory address
+        alu_ctrl[2] = 1; // ADD (0010)
+        id_exe_buffer->ALU_CTRL[2] = 1;
+    }
+    else if (alu_op[0] == 0 && alu_op[1] == 1) // Branch
+    {
+        // ALU performs subtraction to compare the two register values
+        alu_ctrl[1] = 1; alu_ctrl[2] = 1;// SUB (0110)
+        id_exe_buffer->ALU_CTRL[1] = 1;
+        id_exe_buffer->ALU_CTRL[2] = 1;
+    }
+    else if (alu_op[0] == 1 && alu_op[1] == 0) // "R-type"
+    {
+        switch (funct3)
+        {
+            case 0: // ADD or SUB
+                if (funct7 == 32) // SUB
+                {
+                    alu_ctrl[1] = 1; alu_ctrl[2] = 1;// SUB (0110)
+                    id_exe_buffer->ALU_CTRL[1] = 1;
+                    id_exe_buffer->ALU_CTRL[2] = 1;
+                }
+                else // ADD
+                {
+                    alu_ctrl[2] = 1; // ADD (0010)
+                    id_exe_buffer->ALU_CTRL[2] = 1;
+                }
+                break;
+            case 7: // AND
+                // AND (0000)
+                break;
+            case 6: // OR
+                alu_ctrl[3] = 1; // OR (0001)
+                id_exe_buffer->ALU_CTRL[3] = 1;
+                break;
+        }
+    }
+}
 
 int decimal(const char* bin)
 {

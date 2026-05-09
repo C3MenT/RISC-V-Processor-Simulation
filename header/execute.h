@@ -9,3 +9,5 @@
 /// @param alu_ctrl A four-bit control signal that indicates which ALU operation to perform. Implemented as a int array.
 /// @param debug // debug flag for debug output
 void Execute(ID_EXE_buffer *id_exe_buffer, EXE_MEM_buffer *exe_mem_buffer, int alu_ctrl[], bool debug = false);
+
+// Here we include that EXE silently takes the MEM_WB_buffer as reference if provided, also, for forwarding or stalls
