@@ -40,7 +40,7 @@ void Mem(EXE_MEM_buffer *exe_mem_buffer, MEM_WB_buffer *mem_wb_buffer, bool debu
         {
             //static int inst_index = -3;
             mem_wb_buffer->instr_index = exe_mem_buffer->instr_index;
-            printf("\nMEMORY STAGE (%d) ===============================\n", mem_wb_buffer->instr_index);
+            printf("\nMEMORY STAGE (%d) ===============================\n", exe_mem_buffer->instr_index);
         }
         else
             printf("\nMEMORY STAGE ===============================\n");

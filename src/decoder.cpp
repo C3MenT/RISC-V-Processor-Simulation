@@ -474,6 +474,7 @@ void ControlUnit(ID_EXE_buffer* id_exe_buffer, const char* type_name, const char
         // the pc corresponding to this instruction.
         jal_target = pc + id_exe_buffer->immediate;
 
+
         if (pipeline)
         {
             // in the pipelined case, we must update pc immediately and compensate with stalls
@@ -549,11 +550,6 @@ void ALUControl(ID_EXE_buffer* id_exe_buffer, int alu_op[2], int funct3, int fun
             case 6: // OR
                 alu_ctrl[3] = 1; // OR (0001)
                 id_exe_buffer->ALU_CTRL[3] = 1;
-                break;
-            case 4: // XOR
-                alu_ctrl[0] = 1; alu_ctrl[1] = 1; // XOR (1100)
-                id_exe_buffer->ALU_CTRL[0] = 1;
-                id_exe_buffer->ALU_CTRL[1] = 1;
                 break;
         }
     }
