@@ -210,11 +210,11 @@ int main(int argc, char* argv[])
             if (total_clock_cycles > -1)
                 printf("\ntotal_clock_cycles %d:\n", total_clock_cycles + 1);
 
-            if (STALL)
+            if (STALL || FLUSH)
                 expected_cycles++; // for each stall cycle, we expect the program to take one cycle longer
 
             Writeback(&mem_wb_buffer, debug);
-            if (mem_wb_buffer.RegWrite && total_clock_cycles < expected_cycles)
+            if (mem_wb_buffer.RegWrite && total_clock_cycles)
             {
                 if (use_reg_names)
                 {
@@ -228,7 +228,7 @@ int main(int argc, char* argv[])
         
             Mem(&exe_mem_buffer, &mem_wb_buffer, debug);
             
-            if (exe_mem_buffer.MemWrite && total_clock_cycles < expected_cycles)
+            if (exe_mem_buffer.MemWrite && total_clock_cycles)
                 printf("memory 0x%x is modified to 0x%x\n", exe_mem_buffer.alu_result, exe_mem_buffer.rs2_val);
 
             Execute(&id_exe_buffer, &exe_mem_buffer, alu_ctrl, debug);
