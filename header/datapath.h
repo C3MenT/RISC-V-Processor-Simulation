@@ -56,6 +56,8 @@ extern int Jump; // whether the instruction is a jump instruction, used to deter
 
 extern int alu_ctrl[4]; // For exe stage
 
+extern int alu_ctrl[4]; // For exe stage
+
 // whether the result of the ALU operation is zero, used for branch instructions;
 // Guidelines say this must be a global var named "alu-zero" but we can't use a hyphen
 extern int alu_zero;
