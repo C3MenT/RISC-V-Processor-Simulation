@@ -6,6 +6,27 @@
 #include "../header/mem.h"
 #include "../header/writeback.h"
 
+/*
+    RISC-V Processor Simulation
+
+    Usage:
+    Build the src files using included Makefile by running "make" in terminal then run with
+    method A or B.
+
+    A: run "risc_simulator.exe" in command line and enter the relative file path to the
+    machine code to run when prompted.
+    This runs the default processor in non-pipelined implementation on the provided code.
+
+    B: run "risc_simulator.exe" in command line followed by the relative file path to the
+    machine code to run.
+    Additionally, include one or two flags;
+    -p for pipelined implementation
+    -d for debug/detailed output
+
+    ex: "./risc_simulator.exe tests/test1.txt -p -d" in wsl terminal
+    runs "test1.txt" in pipelined processor with full debug output.
+*/
+
 // Debug mode flag
 bool debug = false;
 
@@ -160,7 +181,7 @@ int main(int argc, char* argv[])
                 printf("memory 0x%x is modified to 0x%x\n", exe_mem_buffer.alu_result, exe_mem_buffer.rs2_val);
             
             Writeback(&mem_wb_buffer, debug);
-            if (!exe_mem_buffer.MemWrite)
+            if (exe_mem_buffer.RegWrite)
             {
                 if (use_reg_names)
                 {
@@ -191,6 +212,7 @@ int main(int argc, char* argv[])
         // still in the pipeline after we finish fetching all instructions from the input file.
         // Recall Cycles = Instructions + Pipeline Depth (5) - 1, so we need to run at least 4 additional cycles after the last instruction
         // is fetched to allow it to fully propagate through the 5-stage pipeline and complete execution.
+        // This is with the exception of STALLS and FLUSHES which add to the total cycles
 
         // Count the instructions in the input file for later use in pipelined implementation
         int instruction_count = 0;
